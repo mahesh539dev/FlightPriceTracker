@@ -1,0 +1,481 @@
+{
+  "name": "Flight Price Tracker - Daily Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cron",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Daily Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [100, 400]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "sheetId": "={{ $env.GOOGLE_SHEETS_ID }}",
+        "documentType": "sheet",
+        "sheetName": "Tracker",
+        "options": {
+          "cellFormat": "a1"
+        }
+      },
+      "name": "Read All Trackers",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [300, 400],
+      "credentials": {
+        "googleSheetsOAuth2Api": "google-sheets"
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-active-trackers",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "active",
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Check Active Trackers",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [500, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Group trackers by chat_id\nconst rows = $input.all();\nconst grouped = {};\n\nfor (const row of rows) {\n  const chatId = row.json.chat_id;\n  if (!grouped[chatId]) {\n    grouped[chatId] = [];\n  }\n  grouped[chatId].push(row.json);\n}\n\nconst result = Object.entries(grouped).map(([chatId, trackers]) => ({\n  chat_id: chatId,\n  trackers: trackers\n}));\n\nreturn result;",
+        "options": {}
+      },
+      "name": "Group By Chat ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 400]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "name": "Loop Over Users",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "sheetId": "={{ $env.GOOGLE_SHEETS_ID }}",
+        "documentType": "sheet",
+        "sheetName": "PriceHistory",
+        "options": {
+          "cellFormat": "a1"
+        }
+      },
+      "name": "Read Price History",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [1100, 400],
+      "credentials": {
+        "googleSheetsOAuth2Api": "google-sheets"
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get yesterday's price for each tracker\nconst trackers = $json.trackers;\nconst priceHistory = $input.all();\n\nconst yesterday = new Date();\nyesterday.setDate(yesterday.getDate() - 1);\nconst yesterdayStr = yesterday.toISOString().split('T')[0];\n\nconst trackerMap = {};\nfor (const tracker of trackers) {\n  const historyForTracker = priceHistory.filter(h => \n    h.json.tracker_id === tracker.tracker_id && \n    h.json.timestamp && h.json.timestamp.includes(yesterdayStr)\n  );\n  \n  trackerMap[tracker.tracker_id] = {\n    ...tracker,\n    yesterday_price: historyForTracker.length > 0 ? parseFloat(historyForTracker[0].json.price) : null\n  };\n}\n\nreturn Object.values(trackerMap);",
+        "options": {}
+      },
+      "name": "Get Yesterday Prices",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 400]
+    },
+    {
+      "parameters": {
+        "url": "=https://test.api.amadeus.com/v1/security/oauth2/token",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "client_credentials"
+            },
+            {
+              "name": "client_id",
+              "value": "={{ $env.AMADEUS_API_KEY }}"
+            },
+            {
+              "name": "client_secret",
+              "value": "={{ $env.AMADEUS_API_SECRET }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Amadeus OAuth",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1500, 400],
+      "credentials": {
+        "httpHeaderAuth": "amadeus-auth"
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Make separate flight search calls for each tracker\nconst trackers = $json.trackers;\nconst results = [];\n\n// This node will be called once per user, but we need to iterate over trackers\n// The actual iteration happens in the sub-nodes\n\nreturn results;",
+        "options": {}
+      },
+      "name": "Prepare Search Params",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1500, 550]
+    },
+    {
+      "parameters": {
+        "url": "=https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode={{ $json.from_airport }}&destinationLocationCode={{ $json.to_airport }}&departureDate={{ $json.travel_date }}&adults={{ $json.passengers }}&max=1&currencyCode={{ $json.currency || 'CAD' }}",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Amadeus Flight Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1700, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract current price\nconst data = $input.first().json;\n\nif (!data.data || data.data.length === 0) {\n  return [{ current_price: null }];\n}\n\nreturn [{\n  current_price: parseFloat(data.data[0].price.total),\n  currency: data.data[0].price.currencyCode,\n  airline: data.data[0].validatingAirlineCodes[0]\n}];",
+        "options": {}
+      },
+      "name": "Extract Current Price",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1900, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build multi-route digest message\nconst trackers = $json.trackers;\nconst currentDate = new Date().toLocaleDateString('en-US', { \n  weekday: 'long', \n  year: 'numeric', \n  month: 'long', \n  day: 'numeric' \n});\n\nlet message = `Daily Flight Price Report – ${currentDate}\\n`;\nmessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n`;\n\nfor (const tracker of trackers) {\n  const daysSinceStart = Math.floor((new Date() - new Date(tracker.tracking_since)) / (1000 * 60 * 60 * 24));\n  const yesterdayPrice = tracker.yesterday_price || 'N/A';\n  \n  message += `✈ ${tracker.from_airport} → ${tracker.to_airport}\\n`;\n  message += `Today: ${tracker.currency || 'CAD'} ${tracker.current_price || 'N/A'}`;\n  message += ` | Yesterday: ${tracker.currency || 'CAD'} ${yesterdayPrice}\\n`;\n  message += `Lowest Ever: ${tracker.currency || 'CAD'} ${tracker.lowest_price} | Tracking: ${daysSinceStart} days\\n\\n`;\n}\n\nmessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;\n\nreturn [{ digest_message: message }];",
+        "options": {}
+      },
+      "name": "Build Digest Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2100, 400]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.digest_message }}",
+        "additionalFields": {}
+      },
+      "name": "Send Telegram Digest",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [2300, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "email-enabled",
+              "leftValue": "={{ $json.email_alerts }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Check Email Enabled",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [2300, 550]
+    },
+    {
+      "parameters": {
+        "to": "={{ $json.email_address }}",
+        "subject": "=Your Daily Flight Price Report",
+        "body": "=<h1>Your Daily Flight Price Report</h1>\n<p>{{ $json.digest_message }}</p>",
+        "additionalFields": {}
+      },
+      "name": "Send Email Digest",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [2500, 550]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "whatsapp-set",
+              "leftValue": "={{ $json.whatsapp_number }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Check WhatsApp Set",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [2300, 700]
+    },
+    {
+      "parameters": {
+        "from": "={{ $env.TWILIO_WHATSAPP_FROM }}",
+        "to": "={{ $json.whatsapp_number }}",
+        "message": "={{ $json.digest_message }}",
+        "additionalFields": {}
+      },
+      "name": "Send WhatsApp Digest",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [2500, 700]
+    }
+  ],
+  "connections": {
+    "Daily Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read All Trackers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read All Trackers": {
+      "main": [
+        [
+          {
+            "node": "Check Active Trackers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Active Trackers": {
+      "main": [
+        [
+          {
+            "node": "Group By Chat ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group By Chat ID": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Users": {
+      "main": [
+        [
+          {
+            "node": "Read Price History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Price History": {
+      "main": [
+        [
+          {
+            "node": "Get Yesterday Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Yesterday Prices": {
+      "main": [
+        [
+          {
+            "node": "Amadeus OAuth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amadeus OAuth": {
+      "main": [
+        [
+          {
+            "node": "Prepare Search Params",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Search Params": {
+      "main": [
+        [
+          {
+            "node": "Amadeus Flight Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amadeus Flight Search": {
+      "main": [
+        [
+          {
+            "node": "Extract Current Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Current Price": {
+      "main": [
+        [
+          {
+            "node": "Build Digest Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Digest Message": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Telegram Digest": {
+      "main": [
+        [
+          {
+            "node": "Check Email Enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Email Enabled": {
+      "main": [
+        [
+          {
+            "node": "Send Email Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email Digest": {
+      "main": [
+        [
+          {
+            "node": "Check WhatsApp Set",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check WhatsApp Set": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["flight-tracker", "daily-digest", "summary"]
+}
