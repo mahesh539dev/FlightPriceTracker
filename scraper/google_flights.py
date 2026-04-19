@@ -1,6 +1,6 @@
 import asyncio
 from playwright.async_api import async_playwright
-from playwright_stealth import stealth_async
+from playwright_stealth import Stealth
 
 AIRPORT_GROUPS = {
     "YYZ": ["YYZ", "YTZ", "YHM", "YKF"],
@@ -39,7 +39,8 @@ async def scrape_google_flights(
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
-        await stealth_async(page)
+        stealth = Stealth()
+        await stealth.apply_stealth_async(page)
         await page.goto(url, wait_until="networkidle", timeout=30000)
         # Wait for price results to render
         try:
