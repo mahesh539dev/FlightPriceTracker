@@ -17,7 +17,7 @@ A fully automated flight price tracking system built on **n8n** that includes:
 | Automation Engine | n8n (self-hosted recommended) |
 | Conversational Bot | Telegram Bot API (webhook-based) |
 | WhatsApp | Twilio WhatsApp API |
-| Flight Prices | Amadeus Flight Offers Search API v2 |
+| Flight Prices | Kiwi.com Tequila Search API |
 | Database | Google Sheets (3 tabs: Sessions, Tracker, PriceHistory) |
 | Email | Gmail OAuth2 via n8n |
 
@@ -67,17 +67,17 @@ flight-price-tracker/
   → [Google Sheets - Read Session by chat_id]
   → [Switch Node - current step?]
       step_0..8 → [Set Node: save answer] → [Update Google Sheets] → [IF step_9?]
-                    YES → [Amadeus OAuth] → [Amadeus Flight Search] → [Format Results]
+                    YES → [Kiwi HTTP Request] → [Kiwi Flight Search] → [Format Results]
                           → [Google Sheets: Write Tracker row] → [Telegram: Send prices]
                           → [IF email=YES → Gmail: confirmation] → [Update step to 10]
                     NO  → [Telegram: Send next question]
       step_10 → [Switch: /stop → Mark inactive | /status → Fetch & reply]
 ```
 
-**Amadeus API Call (step 9):**
-- Endpoint: `GET https://test.api.amadeus.com/v2/shopping/flight-offers`
-- Params: `originLocationCode`, `destinationLocationCode`, `departureDate`, `returnDate` (omit if ONEWAY), `adults`, `max=5`, `currencyCode=CAD`
-- Auth: OAuth2 via `POST https://test.api.amadeus.com/v1/security/oauth2/token` with `grant_type=client_credentials`
+**Kiwi.com Tequila API Call (step 9):**
+- Endpoint: `GET https://tequila-api.kiwi.com/v2/search`
+- Params: `apikey`, `fly_from` (IATA code), `fly_to`, `date_from`, `date_to` (omit if ONEWAY), `adults`, `limit=5`, `curr=CAD`
+- Auth: API key in query params (no OAuth needed)
 
 **Nearby Airport Logic (JavaScript Code Node):**
 ```javascript
@@ -93,7 +93,7 @@ const matchedCode = Object.keys(airportGroups).find(k =>
   userInput.includes(k) || userInput.includes("TORONTO") // extend city matching
 );
 return airportGroups[matchedCode] || [userInput];
-// Run separate Amadeus calls per code, merge/sort by price
+// Run separate Kiwi API calls per code, merge/sort by price
 ```
 
 ---
@@ -107,7 +107,7 @@ return airportGroups[matchedCode] || [userInput];
 [Schedule Trigger - 1hr]
   → [Google Sheets: Read Tracker tab, filter status="active"]
   → [Split In Batches: batch size 1]
-  → [Amadeus OAuth] → [Amadeus Flight Search per row]
+  → [Kiwi HTTP Request] → [Kiwi Flight Search per row]
   → [Code Node: Extract cheapest price]
   → [IF: current_price < last_price * (1 - threshold/100)]
       YES → [IF: tracking_days >= 3 AND current_price < lowest_ever]
@@ -149,7 +149,7 @@ return { currentPrice, percentDrop: percentDrop.toFixed(2), isSignificantDrop, i
   → [Google Sheets: Read Tracker tab, filter status="active"]
   → [Code Node: Group rows by chat_id]
   → [Loop over each unique user]
-      → [Amadeus search for each route of this user]
+      → [Kiwi search for each route of this user]
       → [Code Node: Format multi-route digest message]
       → [Telegram: Send digest]
       → [IF email=YES → Gmail: daily email]
@@ -218,9 +218,7 @@ Lowest Ever: {currency} {lowest} | Tracking: {days} days
 ## Environment Variables (n8n Credentials)
 
 ```
-AMADEUS_API_KEY           = your-amadeus-api-key
-AMADEUS_API_SECRET        = your-amadeus-api-secret
-AMADEUS_BASE_URL          = https://test.api.amadeus.com
+KIWI_API_KEY              = your-kiwi-api-key
 
 TELEGRAM_BOT_TOKEN        = your-telegram-bot-token
 TELEGRAM_WEBHOOK_URL      = https://your-n8n-instance.com/webhook/telegram
@@ -300,7 +298,7 @@ This is the lowest we've seen — act fast!
 
 ## Key Implementation Rules
 
-1. **Always get Amadeus OAuth token first** before any flight search call — tokens expire and must be fetched fresh per workflow execution.
+1. **Use Kiwi API key in query params** for all flight search calls — no OAuth needed, simpler integration.
 2. **Batch size must be 1** in Workflow 2's Split In Batches node to avoid API rate limit issues.
 3. **Nearby airports**: Run separate Amadeus calls for each airport code, then merge and sort all results by price before presenting.
 4. **State machine**: Always read the Sessions tab first to determine current step. Never assume step — always look it up.
@@ -309,7 +307,7 @@ This is the lowest we've seen — act fast!
 7. **Error handling**: If Amadeus returns no results, reply to user: "No flights found for this route/date. Try different dates."
 8. **WhatsApp**: Treat as optional — only send if `whatsapp_number` is set in the Tracker row.
 9. **n8n self-hosted**: Recommend Railway or Render for zero-cost VPS hosting during development.
-10. **Test first**: Always use `test.api.amadeus.com` during development. Switch to `api.amadeus.com` only after full testing.
+10. **Kiwi API endpoint**: Always use `https://tequila-api.kiwi.com/v2/search` (single production endpoint, no test/prod switching).
 
 ---
 
@@ -317,8 +315,7 @@ This is the lowest we've seen — act fast!
 
 | Service | Free Tier | Monthly Cost |
 |---------|-----------|--------------|
-| Amadeus API (Test) | Unlimited | $0 |
-| Amadeus API (Production) | 500 calls/month | $0–$10 |
+| Kiwi.com Tequila API | Unlimited | $0 |
 | Telegram Bot API | Unlimited | $0 |
 | Twilio WhatsApp | $0 incoming | ~$1–$5 per 100 alerts |
 | Gmail via n8n | Free | $0 |

@@ -3,7 +3,8 @@
   "nodes": [
     {
       "parameters": {
-        "chatId": "={{ $json.chat_id }}"
+        "updates": ["message"],
+        "additionalFields": {}
       },
       "name": "Telegram Trigger",
       "type": "n8n-nodes-base.telegramTrigger",
@@ -14,16 +15,21 @@
     {
       "parameters": {
         "operation": "read",
-        "sheetId": "={{ $env.GOOGLE_SHEETS_ID }}",
-        "documentType": "sheet",
+        "documentId": "={{ $env.GOOGLE_SHEETS_ID }}",
         "sheetName": "Sessions",
-        "options": {
-          "cellFormat": "a1"
-        }
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "chat_id",
+              "lookupValue": "={{ $json.message.chat.id }}"
+            }
+          ]
+        },
+        "options": {}
       },
       "name": "Read Session",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 3,
+      "typeVersion": 4,
       "position": [300, 400],
       "credentials": {
         "googleSheetsOAuth2Api": "google-sheets"
@@ -32,20 +38,13 @@
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
           "conditions": [
             {
               "id": "chat-id-exists",
               "leftValue": "={{ $json.chat_id }}",
               "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "exists"
-              }
+              "operator": { "type": "string", "operation": "exists" }
             }
           ],
           "combinator": "and"
@@ -54,41 +53,449 @@
       },
       "name": "Check Session Exists",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [500, 400]
     },
     {
       "parameters": {
-        "operation": "append",
-        "sheetId": "={{ $env.GOOGLE_SHEETS_ID }}",
-        "documentType": "sheet",
+        "operation": "appendOrUpdate",
+        "documentId": "={{ $env.GOOGLE_SHEETS_ID }}",
         "sheetName": "Sessions",
-        "columns": "chat_id,platform,step,temp_data,last_active",
-        "options": {
-          "cellFormat": "a1"
-        }
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+            "platform": "telegram",
+            "step": 0,
+            "temp_data": "{}",
+            "last_active": "={{ new Date().toISOString() }}"
+          }
+        },
+        "options": {}
       },
       "name": "Create New Session",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 3,
-      "position": [700, 300],
+      "typeVersion": 4,
+      "position": [700, 250],
       "credentials": {
         "googleSheetsOAuth2Api": "google-sheets"
       }
     },
     {
       "parameters": {
-        "data": {
-          "assignments": {
-            "columns": []
-          }
+        "assignments": {
+          "assignments": [
+            { "id": "set-chat-id", "name": "chat_id", "value": "={{ $('Telegram Trigger').item.json.message.chat.id }}", "type": "string" },
+            { "id": "set-step", "name": "step", "value": 0, "type": "number" },
+            { "id": "set-temp", "name": "temp_data", "value": "{}", "type": "string" }
+          ]
         },
         "options": {}
       },
       "name": "Initialize Session Data",
       "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [900, 250]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "pass-chat-id", "name": "chat_id", "value": "={{ $json.chat_id || $('Telegram Trigger').item.json.message.chat.id }}", "type": "string" },
+            { "id": "pass-step", "name": "step", "value": "={{ $json.step }}", "type": "number" },
+            { "id": "pass-temp", "name": "temp_data", "value": "={{ $json.temp_data || '{}' }}", "type": "string" },
+            { "id": "pass-msg", "name": "user_message", "value": "={{ $('Telegram Trigger').item.json.message.text }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Merge Session Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1100, 400]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            { "output": 0, "conditions": [{ "value1": "={{ $json.step }}", "value2": 0, "operation": "equals" }] },
+            { "output": 1, "conditions": [{ "value1": "={{ $json.step }}", "value2": 1, "operation": "equals" }] },
+            { "output": 2, "conditions": [{ "value1": "={{ $json.step }}", "value2": 2, "operation": "equals" }] },
+            { "output": 3, "conditions": [{ "value1": "={{ $json.step }}", "value2": 3, "operation": "equals" }] },
+            { "output": 4, "conditions": [{ "value1": "={{ $json.step }}", "value2": 4, "operation": "equals" }] },
+            { "output": 5, "conditions": [{ "value1": "={{ $json.step }}", "value2": 5, "operation": "equals" }] },
+            { "output": 6, "conditions": [{ "value1": "={{ $json.step }}", "value2": 6, "operation": "equals" }] },
+            { "output": 7, "conditions": [{ "value1": "={{ $json.step }}", "value2": 7, "operation": "equals" }] },
+            { "output": 8, "conditions": [{ "value1": "={{ $json.step }}", "value2": 8, "operation": "equals" }] },
+            { "output": 9, "conditions": [{ "value1": "={{ $json.step }}", "value2": 9, "operation": "equals" }] },
+            { "output": 10, "conditions": [{ "value1": "={{ $json.step }}", "value2": 10, "operation": "equals" }] }
+          ],
+          "fallbackOutput": 99
+        }
+      },
+      "name": "Step Switcher",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1300, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const tempData = JSON.parse($json.temp_data || '{}');\nconst step = parseInt($json.step);\nconst answer = $json.user_message.trim();\n\nconst fieldMap = {\n  1: 'email_alerts',\n  2: 'email_address',\n  3: 'from_airport',\n  4: 'to_airport',\n  5: 'travel_date',\n  6: 'return_date',\n  7: 'passengers',\n  8: 'check_nearby',\n  9: 'alert_threshold_raw'\n};\n\nif (fieldMap[step]) {\n  tempData[fieldMap[step]] = answer.toUpperCase();\n  if (step === 1 && answer.toUpperCase() === 'NO') {\n    tempData.email_alerts = 'NO';\n    tempData.email_address = '';\n  }\n  if (step === 9) {\n    const thresholds = { '1': { percent: 5, fixed: 0 }, '2': { percent: 10, fixed: 0 }, '3': { percent: 15, fixed: 0 } };\n    if (thresholds[answer]) {\n      tempData.alert_threshold_percent = thresholds[answer].percent;\n      tempData.alert_threshold_fixed = 0;\n    } else {\n      tempData.alert_threshold_percent = 0;\n      tempData.alert_threshold_fixed = parseFloat(answer.replace(/[^0-9.]/g, '')) || 50;\n    }\n  }\n}\n\nconst nextStep = (step === 1 && answer.toUpperCase() === 'NO') ? 3 : step + 1;\n\nreturn [{\n  chat_id: $json.chat_id,\n  step: nextStep,\n  temp_data: JSON.stringify(tempData)\n}];",
+        "options": {}
+      },
+      "name": "Save Answer And Advance",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1500, 250]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": "={{ $env.GOOGLE_SHEETS_ID }}",
+        "sheetName": "Sessions",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "step": "={{ $json.step }}",
+            "temp_data": "={{ $json.temp_data }}",
+            "last_active": "={{ new Date().toISOString() }}"
+          }
+        },
+        "matchingColumns": ["chat_id"],
+        "options": {}
+      },
+      "name": "Update Session Step",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1700, 250],
+      "credentials": {
+        "googleSheetsOAuth2Api": "google-sheets"
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "Welcome to FlightTracker Bot!\nI'll monitor flight prices for you and alert you when they drop.\n\nFirst — do you want to receive email alerts?\nReply: YES or NO",
+        "additionalFields": {}
+      },
+      "name": "Step 0 - Welcome",
+      "type": "n8n-nodes-base.telegram",
       "typeVersion": 1,
-      "position": [900, 300]
+      "position": [1500, 100],
+      "credentials": { "telegramApi": "telegram-bot" }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "Great! Please enter your Gmail address for email alerts.\n(We'll only use it for price drop notifications)",
+        "additionalFields": {}
+      },
+      "name": "Step 1 - Ask Email Address",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1500, 350],
+      "credentials": { "telegramApi": "telegram-bot" }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "Where will you be flying from?\nEnter your departure city or airport code (e.g., YYZ or Toronto)",
+        "additionalFields": {}
+      },
+      "name": "Step 2 - Ask Email Or Origin",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1500, 500],
+      "credentials": { "telegramApi": "telegram-bot" }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "Where do you want to fly to?\nEnter your destination city or airport code (e.g., BOM or Mumbai)",
+        "additionalFields": {}
+      },
+      "name": "Step 3 - Destination Airport",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1500, 650],
+      "credentials": { "telegramApi": "telegram-bot" }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "When do you want to travel?\nEnter date in YYYY-MM-DD format (e.g., 2026-12-15)",
+        "additionalFields": {}
+      },
+      "name": "Step 4 - Travel Date",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1500, 800],
+      "credentials": { "telegramApi": "telegram-bot" }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "What's your return date?\nEnter in YYYY-MM-DD format or type ONEWAY for a one-way trip",
+        "additionalFields": {}
+      },
+      "name": "Step 5 - Return Date",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1500, 950],
+      "credentials": { "telegramApi": "telegram-bot" }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "How many adults will be traveling?\n(Enter a number between 1 and 9)",
+        "additionalFields": {}
+      },
+      "name": "Step 6 - Passengers",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1500, 1100],
+      "credentials": { "telegramApi": "telegram-bot" }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "Should I check prices from nearby airports too?\nFor example, Toronto (YYZ) also checks YTZ, YHM, YKF.\nReply: YES or NO",
+        "additionalFields": {}
+      },
+      "name": "Step 7 - Nearby Airports",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1500, 1250],
+      "credentials": { "telegramApi": "telegram-bot" }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "How do you want to be alerted about price drops?\n\n1) 5% drop\n2) 10% drop\n3) 15% drop\n4) Custom amount (enter dollar amount)\n\nReply with 1, 2, 3, or a dollar amount (e.g. 50)",
+        "additionalFields": {}
+      },
+      "name": "Step 8 - Alert Threshold",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1500, 1400],
+      "credentials": { "telegramApi": "telegram-bot" }
+    },
+    {
+      "parameters": {
+        "jsCode": "const tempData = JSON.parse($json.temp_data || '{}');\nconst chatId = $json.chat_id;\n\nconst fromAirport = (tempData.from_airport || '').toUpperCase();\nconst toAirport = (tempData.to_airport || '').toUpperCase();\nconst travelDate = tempData.travel_date || '';\nconst returnDate = tempData.return_date || 'ONEWAY';\nconst passengers = parseInt(tempData.passengers) || 1;\nconst checkNearby = tempData.check_nearby === 'YES';\nconst emailAlerts = tempData.email_alerts === 'YES';\nconst emailAddress = tempData.email_address || '';\nconst thresholdPercent = parseFloat(tempData.alert_threshold_percent) || 10;\nconst thresholdFixed = parseFloat(tempData.alert_threshold_fixed) || 0;\n\nconst airportGroups = {\n  'YYZ': ['YYZ', 'YTZ', 'YHM', 'YKF'],\n  'YVR': ['YVR', 'YXX'],\n  'JFK': ['JFK', 'LGA', 'EWR'],\n  'LHR': ['LHR', 'LGW', 'STN', 'LTN'],\n  'BOM': ['BOM', 'PNQ'],\n  'DEL': ['DEL'],\n  'SIN': ['SIN', 'XSP'],\n  'DXB': ['DXB', 'DWC'],\n  'LAX': ['LAX', 'SNA', 'BUR'],\n  'SFO': ['SFO', 'OAK', 'SJC']\n};\n\nlet originCodes = [fromAirport];\nif (checkNearby) {\n  const matched = Object.keys(airportGroups).find(k =>\n    fromAirport.includes(k) ||\n    (fromAirport.includes('TORONTO') && k === 'YYZ') ||\n    (fromAirport.includes('MUMBAI') && k === 'BOM') ||\n    (fromAirport.includes('LONDON') && k === 'LHR') ||\n    (fromAirport.includes('DELHI') && k === 'DEL') ||\n    (fromAirport.includes('DUBAI') && k === 'DXB')\n  );\n  if (matched) originCodes = airportGroups[matched];\n}\n\nreturn [{\n  chat_id: chatId,\n  from_airport: fromAirport,\n  to_airport: toAirport,\n  travel_date: travelDate,\n  return_date: returnDate,\n  passengers: passengers,\n  check_nearby: checkNearby,\n  email_alerts: emailAlerts,\n  email_address: emailAddress,\n  alert_threshold_percent: thresholdPercent,\n  alert_threshold_fixed: thresholdFixed,\n  origin_codes: originCodes,\n  currency: 'CAD',\n  temp_data: $json.temp_data\n}];",
+        "options": {}
+      },
+      "name": "Step 9 - Build Search Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1500, 1550]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ 'Got it! Here\\'s your tracking setup:\\n✈ ' + $json.from_airport + ' → ' + $json.to_airport + '\\nDepart: ' + $json.travel_date + ' | Return: ' + $json.return_date + '\\n' + $json.passengers + ' Adult(s)\\nAlert threshold: ' + ($json.alert_threshold_percent > 0 ? $json.alert_threshold_percent + '%' : '$' + $json.alert_threshold_fixed) + '\\nEmail alerts: ' + ($json.email_alerts ? 'YES (' + $json.email_address + ')' : 'NO') + '\\nNearby airports: ' + ($json.check_nearby ? 'YES' : 'NO') + '\\n\\nSearching for current prices...' }}",
+        "additionalFields": {}
+      },
+      "name": "Send Confirmation",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1700, 1550],
+      "credentials": { "telegramApi": "telegram-bot" }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('Step 9 - Build Search Context').first().json;\nconst kiwiApiKey = $env.KIWI_API_KEY;\nif (!kiwiApiKey) throw new Error('KIWI_API_KEY environment variable not set');\n\nconst searchTasks = ctx.origin_codes.map(code => ({\n  api_key: kiwiApiKey,\n  from_airport: code,\n  to_airport: ctx.to_airport,\n  travel_date: ctx.travel_date,\n  return_date: ctx.return_date,\n  passengers: ctx.passengers,\n  email_alerts: ctx.email_alerts,\n  email_address: ctx.email_address,\n  alert_threshold_percent: ctx.alert_threshold_percent,\n  alert_threshold_fixed: ctx.alert_threshold_fixed,\n  check_nearby: ctx.check_nearby,\n  currency: ctx.currency,\n  chat_id: ctx.chat_id,\n  temp_data: ctx.temp_data\n}));\n\nreturn searchTasks;",
+        "options": {}
+      },
+      "name": "Merge Token With Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2100, 1550]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://tequila-api.kiwi.com/v2/search?apikey=' + $json.api_key + '&fly_from=' + $json.from_airport + '&fly_to=' + $json.to_airport + '&date_from=' + $json.travel_date + ($json.return_date !== 'ONEWAY' ? '&date_to=' + $json.return_date : '&date_to=' + $json.travel_date) + '&adults=' + $json.passengers + '&limit=5&curr=' + $json.currency }}",
+        "method": "GET",
+        "options": {}
+      },
+      "name": "Kiwi Flight Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2300, 1550]
+    },
+    {
+      "parameters": {
+        "jsCode": "const allItems = $input.all();\nconst ctx = $('Merge Token With Context').first().json;\n\nconst allOffers = [];\nfor (const item of allItems) {\n  const data = item.json;\n  if (data.data && data.data.length > 0) {\n    for (const offer of data.data) {\n      allOffers.push({\n        price: parseFloat(offer.price),\n        currency: data.currency || 'CAD',\n        airline: offer.airlines[0] || 'Unknown',\n        flight_numbers: offer.route.map(r => `${r.airline}${r.flight_no}`).join(', ')\n      });\n    }\n  }\n}\n\nif (allOffers.length === 0) {\n  return [{ no_results: true, chat_id: ctx.chat_id }];\n}\n\nallOffers.sort((a, b) => a.price - b.price);\nconst top5 = allOffers.slice(0, 5);\nconst cheapest = top5[0];\n\nconst priceList = top5.map((o, i) => `${i + 1}. ${o.currency} ${o.price.toFixed(2)} — ${o.airline} (${o.flight_numbers})`).join('\\n');\n\nreturn [{\n  no_results: false,\n  chat_id: ctx.chat_id,\n  from_airport: $('Step 9 - Build Search Context').first().json.from_airport,\n  to_airport: ctx.to_airport,\n  travel_date: $('Step 9 - Build Search Context').first().json.travel_date,\n  return_date: $('Step 9 - Build Search Context').first().json.return_date,\n  passengers: ctx.passengers,\n  check_nearby: ctx.check_nearby,\n  email_alerts: ctx.email_alerts,\n  email_address: ctx.email_address,\n  alert_threshold_percent: ctx.alert_threshold_percent,\n  alert_threshold_fixed: ctx.alert_threshold_fixed,\n  currency: cheapest.currency,\n  initial_price: cheapest.price,\n  lowest_price: cheapest.price,\n  last_price: cheapest.price,\n  airline: cheapest.airline,\n  flight_numbers: cheapest.flight_numbers,\n  price_list: priceList,\n  tracker_id: 'trk-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9)\n}];",
+        "options": {}
+      },
+      "name": "Parse And Merge Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2500, 1550]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "has-results",
+              "leftValue": "={{ $json.no_results }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Has Results?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2700, 1550]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{ $env.GOOGLE_SHEETS_ID }}",
+        "sheetName": "Tracker",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tracker_id": "={{ $json.tracker_id }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "platform": "telegram",
+            "from_airport": "={{ $json.from_airport }}",
+            "to_airport": "={{ $json.to_airport }}",
+            "travel_date": "={{ $json.travel_date }}",
+            "return_date": "={{ $json.return_date }}",
+            "passengers": "={{ $json.passengers }}",
+            "check_nearby": "={{ $json.check_nearby }}",
+            "initial_price": "={{ $json.initial_price }}",
+            "last_price": "={{ $json.last_price }}",
+            "lowest_price": "={{ $json.lowest_price }}",
+            "last_checked": "={{ new Date().toISOString() }}",
+            "tracking_since": "={{ new Date().toISOString().split('T')[0] }}",
+            "alert_threshold_percent": "={{ $json.alert_threshold_percent }}",
+            "alert_threshold_fixed": "={{ $json.alert_threshold_fixed }}",
+            "email_alerts": "={{ $json.email_alerts }}",
+            "email_address": "={{ $json.email_address }}",
+            "whatsapp_number": "",
+            "status": "active",
+            "currency": "={{ $json.currency }}"
+          }
+        },
+        "options": {}
+      },
+      "name": "Create Tracker Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2900, 1450],
+      "credentials": { "googleSheetsOAuth2Api": "google-sheets" }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{ $env.GOOGLE_SHEETS_ID }}",
+        "sheetName": "PriceHistory",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tracker_id": "={{ $json.tracker_id }}",
+            "timestamp": "={{ new Date().toISOString() }}",
+            "price": "={{ $json.initial_price }}",
+            "airline": "={{ $json.airline }}",
+            "flight_numbers": "={{ $json.flight_numbers }}"
+          }
+        },
+        "options": {}
+      },
+      "name": "Append Initial Price History",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [3100, 1450],
+      "credentials": { "googleSheetsOAuth2Api": "google-sheets" }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ 'Current Best Prices:\\n✈ ' + $json.from_airport + ' → ' + $json.to_airport + '\\n━━━━━━━━━━━━━━━━━━━━\\n' + $json.price_list + '\\n━━━━━━━━━━━━━━━━━━━━\\nTracking is now ACTIVE!\\nI\\'ll check prices hourly and alert you when they drop.\\n\\nSend /stop to stop tracking\\nSend /status for current prices' }}",
+        "additionalFields": {}
+      },
+      "name": "Send Price Results",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [3300, 1450],
+      "credentials": { "telegramApi": "telegram-bot" }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "email-yes",
+              "leftValue": "={{ $json.email_alerts }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Email Alerts Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3500, 1450]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email_address }}",
+        "subject": "={{ 'FlightTracker: Tracking started for ' + $json.from_airport + ' → ' + $json.to_airport }}",
+        "message": "={{ '<h2>Flight Tracking Started!</h2><p><strong>Route:</strong> ' + $json.from_airport + ' → ' + $json.to_airport + '</p><p><strong>Travel Date:</strong> ' + $json.travel_date + '</p><p><strong>Starting Price:</strong> ' + $json.currency + ' ' + $json.initial_price + '</p><p><strong>Alert Threshold:</strong> ' + ($json.alert_threshold_percent > 0 ? $json.alert_threshold_percent + '%' : '$' + $json.alert_threshold_fixed) + '</p><p>You will receive email alerts when prices drop below your threshold.</p>' }}",
+        "options": {}
+      },
+      "name": "Gmail Confirmation",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [3700, 1350],
+      "credentials": { "gmailOAuth2": "gmail-oauth" }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": "={{ $env.GOOGLE_SHEETS_ID }}",
+        "sheetName": "Sessions",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "step": 10,
+            "last_active": "={{ new Date().toISOString() }}"
+          }
+        },
+        "matchingColumns": ["chat_id"],
+        "options": {}
+      },
+      "name": "Update to Step 10",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [3900, 1450],
+      "credentials": { "googleSheetsOAuth2Api": "google-sheets" }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "Sorry, no flights found for that route and date.\nPlease check your airport codes and try again.\n\nSend any message to start a new search.",
+        "additionalFields": {}
+      },
+      "name": "No Results Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [2900, 1650],
+      "credentials": { "telegramApi": "telegram-bot" }
     },
     {
       "parameters": {
@@ -96,626 +503,198 @@
           "rules": [
             {
               "output": 0,
-              "conditions": [
-                {
-                  "value1": "={{ $json.step }}",
-                  "value2": 0,
-                  "operation": "equals"
-                }
-              ]
+              "conditions": [{ "value1": "={{ $json.user_message }}", "value2": "/stop", "operation": "equals" }]
             },
             {
               "output": 1,
-              "conditions": [
-                {
-                  "value1": "={{ $json.step }}",
-                  "value2": 1,
-                  "operation": "equals"
-                }
-              ]
-            },
-            {
-              "output": 2,
-              "conditions": [
-                {
-                  "value1": "={{ $json.step }}",
-                  "value2": 2,
-                  "operation": "equals"
-                }
-              ]
-            },
-            {
-              "output": 3,
-              "conditions": [
-                {
-                  "value1": "={{ $json.step }}",
-                  "value2": 3,
-                  "operation": "equals"
-                }
-              ]
-            },
-            {
-              "output": 4,
-              "conditions": [
-                {
-                  "value1": "={{ $json.step }}",
-                  "value2": 4,
-                  "operation": "equals"
-                }
-              ]
-            },
-            {
-              "output": 5,
-              "conditions": [
-                {
-                  "value1": "={{ $json.step }}",
-                  "value2": 5,
-                  "operation": "equals"
-                }
-              ]
-            },
-            {
-              "output": 6,
-              "conditions": [
-                {
-                  "value1": "={{ $json.step }}",
-                  "value2": 6,
-                  "operation": "equals"
-                }
-              ]
-            },
-            {
-              "output": 7,
-              "conditions": [
-                {
-                  "value1": "={{ $json.step }}",
-                  "value2": 7,
-                  "operation": "equals"
-                }
-              ]
-            },
-            {
-              "output": 8,
-              "conditions": [
-                {
-                  "value1": "={{ $json.step }}",
-                  "value2": 8,
-                  "operation": "equals"
-                }
-              ]
-            },
-            {
-              "output": 9,
-              "conditions": [
-                {
-                  "value1": "={{ $json.step }}",
-                  "value2": 9,
-                  "operation": "equals"
-                }
-              ]
-            },
-            {
-              "output": 10,
-              "conditions": [
-                {
-                  "value1": "={{ $json.step }}",
-                  "value2": 10,
-                  "operation": "equals"
-                }
-              ]
+              "conditions": [{ "value1": "={{ $json.user_message }}", "value2": "/status", "operation": "equals" }]
             }
           ],
-          "fallbackOutput": 99
-        },
-        "fallbackOutput": "={{ $json.step }}"
+          "fallbackOutput": 2
+        }
       },
-      "name": "Step Switcher",
+      "name": "Step 10 Command Switch",
       "type": "n8n-nodes-base.switch",
-      "typeVersion": 1,
-      "position": [1100, 400]
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $json.chat_id }}",
-        "text": "=Welcome to FlightTracker Bot!\nI'll monitor flight prices for you and alert you when they drop.\n\nFirst — do you want to receive email alerts?\nReply: YES or NO",
-        "additionalFields": {}
-      },
-      "name": "Step 0 - Welcome",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [1300, 100]
+      "typeVersion": 3,
+      "position": [1500, 1800]
     },
     {
       "parameters": {
         "operation": "update",
-        "sheetId": "={{ $env.GOOGLE_SHEETS_ID }}",
-        "documentType": "sheet",
-        "sheetName": "Sessions",
-        "columns": "step,temp_data",
-        "key": "chat_id",
-        "keyValue": "={{ $json.chat_id }}",
-        "options": {
-          "cellFormat": "a1"
-        }
-      },
-      "name": "Update Step 1",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 3,
-      "position": [1300, 250],
-      "credentials": {
-        "googleSheetsOAuth2Api": "google-sheets"
-      }
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $json.chat_id }}",
-        "text": "=Great! Please provide your email address for alerts.\n(We'll only use it for price drop notifications)",
-        "additionalFields": {}
-      },
-      "name": "Step 1 - Ask Email",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [1300, 400]
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $json.chat_id }}",
-        "text": "=Where will you be flying from?\nEnter your departure city or airport code (e.g., YYZ or Toronto)",
-        "additionalFields": {}
-      },
-      "name": "Step 2 - Origin Airport",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [1300, 550]
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $json.chat_id }}",
-        "text": "=Where do you want to fly to?\nEnter your destination city or airport code (e.g., BOM or Mumbai)",
-        "additionalFields": {}
-      },
-      "name": "Step 3 - Destination Airport",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [1300, 700]
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $json.chat_id }}",
-        "text": "=When do you want to travel?\nEnter date in YYYY-MM-DD format (e.g., 2024-12-15)",
-        "additionalFields": {}
-      },
-      "name": "Step 4 - Travel Date",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [1300, 850]
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $json.chat_id }}",
-        "text": "=What's your return date?\nEnter in YYYY-MM-DD format or type ONEWAY if it's a one-way trip",
-        "additionalFields": {}
-      },
-      "name": "Step 5 - Return Date",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [1300, 1000]
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $json.chat_id }}",
-        "text": "=How many adults will be traveling?\n(Enter a number between 1 and 9)",
-        "additionalFields": {}
-      },
-      "name": "Step 6 - Passengers",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [1300, 1150]
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $json.chat_id }}",
-        "text": "=Should I check prices from nearby airports too?\nFor example, if you enter Toronto, I can also check YTZ, YHM, and YKF.\nReply: YES or NO",
-        "additionalFields": {}
-      },
-      "name": "Step 7 - Nearby Airports",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [1300, 1300]
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $json.chat_id }}",
-        "text": "=How do you want to be alerted about price drops?\n\n1) 5% drop\n2) 10% drop\n3) 15% drop\n4) Custom amount (enter dollar amount)\n\nReply with 1, 2, 3, or 4 (or a dollar amount for option 4)",
-        "additionalFields": {}
-      },
-      "name": "Step 8 - Alert Threshold",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [1300, 1450]
-    },
-    {
-      "parameters": {
-        "url": "=https://test.api.amadeus.com/v1/security/oauth2/token",
-        "method": "POST",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/x-www-form-urlencoded"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "grant_type",
-              "value": "client_credentials"
-            },
-            {
-              "name": "client_id",
-              "value": "={{ $env.AMADEUS_API_KEY }}"
-            },
-            {
-              "name": "client_secret",
-              "value": "={{ $env.AMADEUS_API_SECRET }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "name": "Amadeus OAuth",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [1500, 1600],
-      "credentials": {
-        "httpHeaderAuth": "amadeus-auth"
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Nearest airport groups\nconst airportGroups = {\n  'YYZ': ['YYZ', 'YTZ', 'YHM', 'YKF'],\n  'YVR': ['YVR', 'YXX'],\n  'JFK': ['JFK', 'LGA', 'EWR'],\n  'LHR': ['LHR', 'LGW', 'STN', 'LTN'],\n  'BOM': ['BOM', 'PNQ'],\n  'DEL': ['DEL', 'DELF'],\n  'SIN': ['SIN', 'XSP'],\n  'DXB': ['DXB', 'DWC', 'SHJ'],\n  'LAX': ['LAX', 'SNA', 'BUR'],\n  'SFO': ['SFO', 'OAK', 'SJC'],\n};\n\nconst userInput = $json.from_airport ? $json.from_airport.toUpperCase() : '';\nconst matchedCode = Object.keys(airportGroups).find(k =>\n  userInput.includes(k) || userInput.includes(k.replace('YZ', 'TORONTO')) ||\n  userInput.includes('TORONTO') && k === 'YYZ' ||\n  userInput.includes('MUMBAI') && k === 'BOM' ||\n  userInput.includes('LONDON') && k === 'LHR' ||\n  userInput.includes('SINGAPORE') && k === 'SIN' ||\n  userInput.includes('DUBAI') && k === 'DXB'\n);\n\nconst nearbyAirports = airportGroups[matchedCode] || [userInput];\n\nreturn { nearby_airports: nearbyAirports };",
-        "options": {}
-      },
-      "name": "Parse Nearby Airports",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1700, 1600]
-    },
-    {
-      "parameters": {
-        "url": "=https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode={{ $json.from_airport }}&destinationLocationCode={{ $json.to_airport }}&departureDate={{ $json.travel_date }}&adults={{ $json.passengers }}&max=5&currencyCode={{ $json.currency || 'CAD' }}",
-        "method": "GET",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $json.access_token }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "name": "Amadeus Flight Search Single",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [1900, 1600]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Parse Amadeus flight offers response\nconst data = $input.first().json;\n\nif (!data.data || data.data.length === 0) {\n  return [{ no_results: true }];\n}\n\nconst offers = data.data.map((offer, index) => ({\n  price: offer.price.total,\n  currency: offer.price.currencyCode,\n  airline: offer.validatingAirlineCodes[0],\n  flight_number: offer.itineraries[0].segments.map(s => s.number).join(', '),\n  departure_time: offer.itineraries[0].segments[0].departure.at,\n  arrival_time: offer.itineraries[0].segments[0].arrival.at,\n  duration: offer.itineraries[0].duration,\n  index: index\n}));\n\noffers.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));\n\nreturn offers.slice(0, 5).map(offer => ({\n  price: offer.price,\n  currency: offer.currency,\n  airline: offer.airline,\n  flight_number: offer.flight_number,\n  departure: offer.departure_time,\n  duration: offer.duration\n}));",
-        "options": {}
-      },
-      "name": "Parse Single Results",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [2100, 1600]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Generate confirmation message with all collected data\nconst tempData = JSON.parse($json.temp_data || '{}');\nconst fromAirport = tempData.from_airport || $json.from_airport;\nconst toAirport = tempData.to_airport || $json.to_airport;\nconst travelDate = tempData.travel_date || $json.travel_date;\nconst returnDate = tempData.return_date || $json.return_date;\nconst passengers = tempData.passengers || $json.passengers;\nconst checkNearby = tempData.check_nearby || $json.check_nearby;\nconst emailAlerts = tempData.email_alerts || $json.email_alerts;\nconst emailAddress = tempData.email_address || $json.email_address;\nconst thresholdType = tempData.alert_threshold_type || $json.alert_threshold_type;\nconst thresholdValue = tempData.alert_threshold_value || $json.alert_threshold_value;\n\nlet thresholdText = '';\nif (thresholdType === '1') thresholdText = '5%';\nelse if (thresholdType === '2') thresholdText = '10%';\nelse if (thresholdType === '3') thresholdText = '15%';\nelse if (thresholdType === '4') thresholdText = '$' + thresholdValue;\n\nconst message = `Got it! Here's your tracking setup:\n✈ ${fromAirport} → ${toAirport}\nDepart: ${travelDate} | Return: ${returnDate}\n${passengers} Adult(s)\nAlert when price drops by ${thresholdText}\nEmail alerts: ${emailAlerts} (${emailAddress || 'N/A'})\nNearby airports: ${checkNearby}\n\nSearching for current prices...`;\n\nreturn { confirmation_message: message, temp_data: JSON.stringify(tempData) };",
-        "options": {}
-      },
-      "name": "Build Confirmation Message",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1700, 1750]
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $json.chat_id }}",
-        "text": "={{ $json.confirmation_message }}",
-        "additionalFields": {}
-      },
-      "name": "Send Confirmation",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [1900, 1750]
-    },
-    {
-      "parameters": {
-        "operation": "append",
-        "sheetId": "={{ $env.GOOGLE_SHEETS_ID }}",
-        "documentType": "sheet",
+        "documentId": "={{ $env.GOOGLE_SHEETS_ID }}",
         "sheetName": "Tracker",
-        "columns": "tracker_id,chat_id,platform,from_airport,to_airport,travel_date,return_date,passengers,check_nearby,initial_price,last_price,lowest_price,last_checked,tracking_since,alert_threshold_percent,alert_threshold_fixed,email_alerts,email_address,whatsapp_number,status,currency",
-        "options": {
-          "cellFormat": "a1"
-        }
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "status": "stopped"
+          }
+        },
+        "matchingColumns": ["chat_id"],
+        "options": {}
       },
-      "name": "Create Tracker Row",
+      "name": "Mark Stopped",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 3,
-      "position": [2100, 1750],
-      "credentials": {
-        "googleSheetsOAuth2Api": "google-sheets"
-      }
+      "typeVersion": 4,
+      "position": [1700, 1700],
+      "credentials": { "googleSheetsOAuth2Api": "google-sheets" }
     },
     {
       "parameters": {
         "chatId": "={{ $json.chat_id }}",
-        "text": "=Current Prices for {{ $json.from_airport }} → {{ $json.to_airport }}:\n━━━━━━━━━━━━━━━━━━━━\n\n{{ $json.price_1 }} - {{ $json.airline_1 }}\nFlight: {{ $json.flights_1 }}\n\n{{ $json.price_2 }} - {{ $json.airline_2 }}\nFlight: {{ $json.flights_2 }}\n\n{{ $json.price_3 }} - {{ $json.airline_3 }}\nFlight: {{ $json.flights_3 }}\n\n━━━━━━━━━━━━━━━━━━━━\nTracking is now ACTIVE!\nI'll check prices hourly and alert you when they drop.\n\nSend /stop to stop tracking\nSend /status for current prices",
+        "text": "Tracking stopped. Send any message to start tracking a new flight.",
         "additionalFields": {}
       },
-      "name": "Send Price Results",
+      "name": "Stop Confirm Message",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1,
-      "position": [2300, 1750]
-    },
-    {
-      "parameters": {
-        "operation": "update",
-        "sheetId": "={{ $env.GOOGLE_SHEETS_ID }}",
-        "documentType": "sheet",
-        "sheetName": "Sessions",
-        "columns": "step",
-        "key": "chat_id",
-        "keyValue": "={{ $json.chat_id }}",
-        "options": {
-          "cellFormat": "a1"
-        }
-      },
-      "name": "Update to Step 10",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 3,
-      "position": [2500, 1750],
-      "credentials": {
-        "googleSheetsOAuth2Api": "google-sheets"
-      }
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $json.chat_id }}",
-        "text": "=Tracking is active.\nSend /stop to stop or /status for latest prices.",
-        "additionalFields": {}
-      },
-      "name": "Step 10 Default",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [1300, 1600]
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $json.chat_id }}",
-        "text": "=✅ Tracking stopped!\n\nYou were tracking:\n✈ {{ $json.from_airport }} → {{ $json.to_airport }}\n\nTo restart, send any message to begin a new search.",
-        "additionalFields": {}
-      },
-      "name": "Stop Command",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [1300, 1750]
+      "position": [1900, 1700],
+      "credentials": { "telegramApi": "telegram-bot" }
     },
     {
       "parameters": {
         "operation": "read",
-        "sheetId": "={{ $env.GOOGLE_SHEETS_ID }}",
-        "documentType": "sheet",
+        "documentId": "={{ $env.GOOGLE_SHEETS_ID }}",
         "sheetName": "Tracker",
-        "options": {
-          "cellFormat": "a1"
-        }
+        "filtersUI": {
+          "values": [
+            { "lookupColumn": "chat_id", "lookupValue": "={{ $json.chat_id }}" },
+            { "lookupColumn": "status", "lookupValue": "active" }
+          ]
+        },
+        "options": {}
       },
       "name": "Read Tracker for Status",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 3,
-      "position": [1500, 1900],
-      "credentials": {
-        "googleSheetsOAuth2Api": "google-sheets"
-      }
+      "typeVersion": 4,
+      "position": [1700, 1900],
+      "credentials": { "googleSheetsOAuth2Api": "google-sheets" }
     },
     {
       "parameters": {
-        "chatId": "={{ $json.chat_id }}",
-        "text": "=📊 Current Status for {{ $json.from_airport }} → {{ $json.to_airport }}\n\nCurrent Price: {{ $json.currency }} {{ $json.last_price }}\nLowest Ever: {{ $json.currency }} {{ $json.lowest_price }}\nTracking Since: {{ $json.tracking_since }} ({{ $json.days }} days)\n\nStatus: {{ $json.status }}\nNext check: Every hour automatically",
+        "chatId": "={{ $('Merge Session Context').item.json.chat_id }}",
+        "text": "={{ 'Current Status:\\n✈ ' + $json.from_airport + ' → ' + $json.to_airport + '\\nLast Price: ' + $json.currency + ' ' + $json.last_price + '\\nLowest Ever: ' + $json.currency + ' ' + $json.lowest_price + '\\nTracking since: ' + $json.tracking_since + '\\nStatus: ' + $json.status }}",
         "additionalFields": {}
       },
-      "name": "Status Command",
+      "name": "Status Reply",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1,
-      "position": [1700, 1900]
-    },
-    {
-      "parameters": {
-        "operation": "update",
-        "sheetId": "={{ $env.GOOGLE_SHEETS_ID }}",
-        "documentType": "sheet",
-        "sheetName": "Tracker",
-        "columns": "status",
-        "key": "chat_id",
-        "keyValue": "={{ $json.chat_id }}",
-        "options": {
-          "cellFormat": "a1"
-        }
-      },
-      "name": "Mark Stopped",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 3,
       "position": [1900, 1900],
-      "credentials": {
-        "googleSheetsOAuth2Api": "google-sheets"
-      }
+      "credentials": { "telegramApi": "telegram-bot" }
     },
     {
       "parameters": {
         "chatId": "={{ $json.chat_id }}",
-        "text": "=No flights found for this route/date.\nTry different dates or check your airport codes.\n\nYou can restart by sending any message.",
+        "text": "Tracking is active. Send /stop to stop or /status for latest prices.",
         "additionalFields": {}
       },
-      "name": "No Results Message",
+      "name": "Step 10 Default Reply",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1,
-      "position": [2100, 1900]
+      "position": [1700, 2100],
+      "credentials": { "telegramApi": "telegram-bot" }
     }
   ],
   "connections": {
     "Telegram Trigger": {
-      "main": [
-        [
-          {
-            "node": "Read Session",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Read Session", "type": "main", "index": 0 }]]
     },
     "Read Session": {
-      "main": [
-        [
-          {
-            "node": "Check Session Exists",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Check Session Exists", "type": "main", "index": 0 }]]
     },
     "Check Session Exists": {
       "main": [
-        [
-          {
-            "node": "Step Switcher",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Create New Session",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Merge Session Context", "type": "main", "index": 0 }],
+        [{ "node": "Create New Session", "type": "main", "index": 0 }]
       ]
     },
     "Create New Session": {
-      "main": [
-        [
-          {
-            "node": "Initialize Session Data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Initialize Session Data", "type": "main", "index": 0 }]]
+    },
+    "Initialize Session Data": {
+      "main": [[{ "node": "Merge Session Context", "type": "main", "index": 0 }]]
+    },
+    "Merge Session Context": {
+      "main": [[{ "node": "Step Switcher", "type": "main", "index": 0 }]]
     },
     "Step Switcher": {
       "main": [
-        [
-          {
-            "node": "Step 0 - Welcome",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Step 1 - Ask Email",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Step 2 - Origin Airport",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Step 3 - Destination Airport",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Step 4 - Travel Date",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Step 5 - Return Date",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Step 6 - Passengers",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Step 7 - Nearby Airports",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Step 8 - Alert Threshold",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Step 9 - Confirm and Search",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Step 10 Default",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Unknown Command",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Step 0 - Welcome", "type": "main", "index": 0 }],
+        [{ "node": "Save Answer And Advance", "type": "main", "index": 0 }],
+        [{ "node": "Save Answer And Advance", "type": "main", "index": 0 }],
+        [{ "node": "Save Answer And Advance", "type": "main", "index": 0 }],
+        [{ "node": "Save Answer And Advance", "type": "main", "index": 0 }],
+        [{ "node": "Save Answer And Advance", "type": "main", "index": 0 }],
+        [{ "node": "Save Answer And Advance", "type": "main", "index": 0 }],
+        [{ "node": "Save Answer And Advance", "type": "main", "index": 0 }],
+        [{ "node": "Save Answer And Advance", "type": "main", "index": 0 }],
+        [{ "node": "Step 9 - Build Search Context", "type": "main", "index": 0 }],
+        [{ "node": "Step 10 Command Switch", "type": "main", "index": 0 }]
       ]
+    },
+    "Step 0 - Welcome": {
+      "main": [[{ "node": "Update Session Step", "type": "main", "index": 0 }]]
+    },
+    "Save Answer And Advance": {
+      "main": [[{ "node": "Update Session Step", "type": "main", "index": 0 }]]
+    },
+    "Update Session Step": {
+      "main": [[{ "node": "Step 1 - Ask Email Address", "type": "main", "index": 0 }]]
+    },
+    "Step 9 - Build Search Context": {
+      "main": [[{ "node": "Send Confirmation", "type": "main", "index": 0 }]]
+    },
+    "Send Confirmation": {
+      "main": [[{ "node": "Merge Token With Context", "type": "main", "index": 0 }]]
+    },
+    "Merge Token With Context": {
+      "main": [[{ "node": "Kiwi Flight Search", "type": "main", "index": 0 }]]
+    },
+    "Kiwi Flight Search": {
+      "main": [[{ "node": "Parse And Merge Results", "type": "main", "index": 0 }]]
+    },
+    "Parse And Merge Results": {
+      "main": [[{ "node": "Has Results?", "type": "main", "index": 0 }]]
+    },
+    "Has Results?": {
+      "main": [
+        [{ "node": "Create Tracker Row", "type": "main", "index": 0 }],
+        [{ "node": "No Results Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Tracker Row": {
+      "main": [[{ "node": "Append Initial Price History", "type": "main", "index": 0 }]]
+    },
+    "Append Initial Price History": {
+      "main": [[{ "node": "Send Price Results", "type": "main", "index": 0 }]]
+    },
+    "Send Price Results": {
+      "main": [[{ "node": "Email Alerts Enabled?", "type": "main", "index": 0 }]]
+    },
+    "Email Alerts Enabled?": {
+      "main": [
+        [{ "node": "Gmail Confirmation", "type": "main", "index": 0 }],
+        [{ "node": "Update to Step 10", "type": "main", "index": 0 }]
+      ]
+    },
+    "Gmail Confirmation": {
+      "main": [[{ "node": "Update to Step 10", "type": "main", "index": 0 }]]
+    },
+    "Step 10 Command Switch": {
+      "main": [
+        [{ "node": "Mark Stopped", "type": "main", "index": 0 }],
+        [{ "node": "Read Tracker for Status", "type": "main", "index": 0 }],
+        [{ "node": "Step 10 Default Reply", "type": "main", "index": 0 }]
+      ]
+    },
+    "Mark Stopped": {
+      "main": [[{ "node": "Stop Confirm Message", "type": "main", "index": 0 }]]
+    },
+    "Read Tracker for Status": {
+      "main": [[{ "node": "Status Reply", "type": "main", "index": 0 }]]
     }
   },
-  "settings": {
-    "executionOrder": "v1"
-  },
+  "settings": { "executionOrder": "v1" },
   "staticData": null,
-  "tags": ["flight-tracker", "telegram", "amadeus"]
+  "tags": ["flight-tracker", "telegram", "kiwi"]
 }

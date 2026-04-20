@@ -4,12 +4,7 @@
     {
       "parameters": {
         "rule": {
-          "interval": [
-            {
-              "field": "cron",
-              "expression": "0 * * * *"
-            }
-          ]
+          "interval": [{ "field": "cron", "expression": "0 * * * *" }]
         }
       },
       "name": "Hourly Schedule Trigger",
@@ -20,47 +15,35 @@
     {
       "parameters": {
         "operation": "read",
-        "sheetId": "={{ $env.GOOGLE_SHEETS_ID }}",
-        "documentType": "sheet",
+        "documentId": "={{ $env.GOOGLE_SHEETS_ID }}",
         "sheetName": "Tracker",
-        "options": {
-          "cellFormat": "a1"
-        }
+        "options": {}
       },
-      "name": "Read Active Trackers",
+      "name": "Read All Trackers",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 3,
+      "typeVersion": 4,
       "position": [300, 400],
-      "credentials": {
-        "googleSheetsOAuth2Api": "google-sheets"
-      }
+      "credentials": { "googleSheetsOAuth2Api": "google-sheets" }
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
           "conditions": [
             {
-              "id": "has-active-trackers",
+              "id": "is-active",
               "leftValue": "={{ $json.status }}",
               "rightValue": "active",
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
+              "operator": { "type": "string", "operation": "equals" }
             }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "name": "Check Active Trackers",
+      "name": "Filter Active Only",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [500, 400]
     },
     {
@@ -70,108 +53,80 @@
       },
       "name": "Split Into Batches",
       "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 1,
-      "position": [700, 400]
+      "typeVersion": 3,
+      "position": [700, 300]
     },
     {
       "parameters": {
-        "url": "=https://test.api.amadeus.com/v1/security/oauth2/token",
-        "method": "POST",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/x-www-form-urlencoded"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "grant_type",
-              "value": "client_credentials"
-            },
-            {
-              "name": "client_id",
-              "value": "={{ $env.AMADEUS_API_KEY }}"
-            },
-            {
-              "name": "client_secret",
-              "value": "={{ $env.AMADEUS_API_SECRET }}"
-            }
+        "assignments": {
+          "assignments": [
+            { "id": "save-tracker-id", "name": "tracker_id", "value": "={{ $json.tracker_id }}", "type": "string" },
+            { "id": "save-chat-id", "name": "chat_id", "value": "={{ $json.chat_id }}", "type": "string" },
+            { "id": "save-from", "name": "from_airport", "value": "={{ $json.from_airport }}", "type": "string" },
+            { "id": "save-to", "name": "to_airport", "value": "={{ $json.to_airport }}", "type": "string" },
+            { "id": "save-date", "name": "travel_date", "value": "={{ $json.travel_date }}", "type": "string" },
+            { "id": "save-return", "name": "return_date", "value": "={{ $json.return_date }}", "type": "string" },
+            { "id": "save-pax", "name": "passengers", "value": "={{ $json.passengers }}", "type": "string" },
+            { "id": "save-last", "name": "last_price", "value": "={{ $json.last_price }}", "type": "string" },
+            { "id": "save-lowest", "name": "lowest_price", "value": "={{ $json.lowest_price }}", "type": "string" },
+            { "id": "save-initial", "name": "initial_price", "value": "={{ $json.initial_price }}", "type": "string" },
+            { "id": "save-since", "name": "tracking_since", "value": "={{ $json.tracking_since }}", "type": "string" },
+            { "id": "save-pct", "name": "alert_threshold_percent", "value": "={{ $json.alert_threshold_percent }}", "type": "string" },
+            { "id": "save-fixed", "name": "alert_threshold_fixed", "value": "={{ $json.alert_threshold_fixed }}", "type": "string" },
+            { "id": "save-email-flag", "name": "email_alerts", "value": "={{ $json.email_alerts }}", "type": "string" },
+            { "id": "save-email", "name": "email_address", "value": "={{ $json.email_address }}", "type": "string" },
+            { "id": "save-wa", "name": "whatsapp_number", "value": "={{ $json.whatsapp_number }}", "type": "string" },
+            { "id": "save-curr", "name": "currency", "value": "={{ $json.currency || 'CAD' }}", "type": "string" }
           ]
         },
         "options": {}
       },
-      "name": "Amadeus OAuth",
-      "type": "n8n-nodes-base.httpRequest",
+      "name": "Store Tracker Context",
+      "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [900, 400],
-      "credentials": {
-        "httpHeaderAuth": "amadeus-auth"
-      }
+      "position": [900, 300]
     },
     {
       "parameters": {
-        "url": "=https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode={{ $json.from_airport }}&destinationLocationCode={{ $json.to_airport }}&departureDate={{ $json.travel_date }}&adults={{ $json.passengers }}&max=5&currencyCode={{ $json.currency || 'CAD' }}",
+        "url": "={{ 'https://tequila-api.kiwi.com/v2/search?apikey=' + $env.KIWI_API_KEY + '&fly_from=' + $json.from_airport + '&fly_to=' + $json.to_airport + '&date_from=' + $json.travel_date + ($json.return_date !== 'ONEWAY' ? '&date_to=' + $json.return_date : '&date_to=' + $json.travel_date) + '&adults=' + $json.passengers + '&limit=1&curr=' + $json.currency }}",
         "method": "GET",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $json.access_token }}"
-            }
-          ]
-        },
         "options": {}
       },
-      "name": "Amadeus Flight Search",
+      "name": "Kiwi Flight Search",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 3,
-      "position": [1100, 400]
+      "position": [1100, 300]
     },
     {
       "parameters": {
-        "jsCode": "// Extract cheapest price from Amadeus response\nconst data = $input.first().json;\n\nif (!data.data || data.data.length === 0) {\n  return [{ no_results: true, current_price: null }];\n}\n\nconst cheapest = data.data.reduce((min, offer) => {\n  const price = parseFloat(offer.price.total);\n  return price < min.price ? { price, offer } : min;\n}, { price: Infinity, offer: null });\n\nconst airline = cheapest.offer.validatingAirlineCodes[0];\nconst flightNumbers = cheapest.offer.itineraries[0].segments.map(s => s.number).join(', ');\n\nreturn [{\n  current_price: cheapest.price,\n  currency: cheapest.offer.price.currencyCode,\n  airline: airline,\n  flight_numbers: flightNumbers,\n  no_results: false\n}];",
+        "jsCode": "const data = $input.first().json;\nconst ctx = $('Store Tracker Context').first().json;\n\nif (!data.data || data.data.length === 0) {\n  return [{ ...ctx, no_results: true, current_price: null }];\n}\n\nconst offer = data.data[0];\nreturn [{\n  ...ctx,\n  no_results: false,\n  current_price: parseFloat(offer.price),\n  airline: offer.airlines[0] || 'Unknown',\n  flight_numbers: offer.route.map(r => `${r.airline}${r.flight_no}`).join(', ')\n}];",
         "options": {}
       },
       "name": "Extract Cheapest Price",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1300, 400]
+      "position": [1300, 300]
     },
     {
       "parameters": {
-        "jsCode": "// Calculate price drop metrics\nconst lastPrice = parseFloat($json.last_price);\nconst currentPrice = parseFloat($json.current_price);\nconst thresholdPercent = parseFloat($json.alert_threshold_percent || 0);\nconst thresholdFixed = parseFloat($json.alert_threshold_fixed || 0);\nconst lowestPrice = parseFloat($json.lowest_price);\nconst trackingSince = new Date($json.tracking_since);\nconst now = new Date();\n\nconst daysDiff = Math.floor((now - trackingSince) / (1000 * 60 * 60 * 24));\nconst percentDrop = lastPrice > 0 ? ((lastPrice - currentPrice) / lastPrice) * 100 : 0;\n\nconst isSignificantDrop = percentDrop >= thresholdPercent || (thresholdFixed > 0 && (lastPrice - currentPrice) >= thresholdFixed);\nconst isNewLowest = currentPrice < lowestPrice;\nconst isMatureDeal = daysDiff >= 3 && isNewLowest;\n\nreturn [{\n  percentDrop: percentDrop.toFixed(2),\n  isSignificantDrop: isSignificantDrop,\n  isNewLowest: isNewLowest,\n  isMatureDeal: isMatureDeal,\n  daysDiff: daysDiff,\n  saving: (lastPrice - currentPrice).toFixed(2)\n}];",
+        "jsCode": "const d = $input.first().json;\nif (d.no_results) {\n  return [{ ...d, isSignificantDrop: false, isMatureDeal: false, percentDrop: '0', saving: '0' }];\n}\n\nconst lastPrice = parseFloat(d.last_price);\nconst currentPrice = parseFloat(d.current_price);\nconst thresholdPercent = parseFloat(d.alert_threshold_percent || 0);\nconst thresholdFixed = parseFloat(d.alert_threshold_fixed || 0);\nconst lowestPrice = parseFloat(d.lowest_price);\nconst trackingSince = new Date(d.tracking_since);\nconst now = new Date();\n\nconst daysDiff = Math.floor((now - trackingSince) / (1000 * 60 * 60 * 24));\nconst percentDrop = lastPrice > 0 ? ((lastPrice - currentPrice) / lastPrice) * 100 : 0;\nconst isSignificantDrop = percentDrop >= thresholdPercent || (thresholdFixed > 0 && (lastPrice - currentPrice) >= thresholdFixed);\nconst isNewLowest = currentPrice < lowestPrice;\nconst isMatureDeal = daysDiff >= 3 && isNewLowest;\n\nreturn [{\n  ...d,\n  percentDrop: percentDrop.toFixed(2),\n  isSignificantDrop,\n  isNewLowest,\n  isMatureDeal,\n  daysDiff,\n  saving: (lastPrice - currentPrice).toFixed(2),\n  new_lowest_price: isNewLowest ? currentPrice : lowestPrice\n}];",
         "options": {}
       },
       "name": "Calculate Price Drop",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1500, 400]
+      "position": [1500, 300]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
           "conditions": [
             {
               "id": "is-significant-drop",
               "leftValue": "={{ $json.isSignificantDrop }}",
               "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
+              "operator": { "type": "boolean", "operation": "equals" }
             }
           ],
           "combinator": "and"
@@ -180,26 +135,19 @@
       },
       "name": "Check Significant Drop",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [1700, 400]
+      "typeVersion": 2,
+      "position": [1700, 300]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
           "conditions": [
             {
               "id": "is-mature-deal",
               "leftValue": "={{ $json.isMatureDeal }}",
               "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
+              "operator": { "type": "boolean", "operation": "equals" }
             }
           ],
           "combinator": "and"
@@ -208,409 +156,266 @@
       },
       "name": "Check Mature Deal",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [1900, 300]
+      "typeVersion": 2,
+      "position": [1900, 200]
     },
     {
       "parameters": {
         "chatId": "={{ $json.chat_id }}",
-        "text": "=🏆 BEST PRICE in {{ $json.daysDiff }} Days of Tracking!\n\n✈ {{ $json.from_airport }} → {{ $json.to_airport }}\n{{ $json.travel_date }}\n\nLowest Ever: {{ $json.currency }} {{ $json.current_price }}\n(Was {{ $json.currency }} {{ $json.initial_price }} when you started)\n\nThat's a saving of {{ $json.currency }} {{ $json.saving }}! (down {{ $json.percentDrop }}%)\n\nThis is the lowest we've seen — act fast!",
+        "text": "={{ 'BEST PRICE in ' + $json.daysDiff + ' Days of Tracking!\\n✈ ' + $json.from_airport + ' → ' + $json.to_airport + ' on ' + $json.travel_date + '\\n━━━━━━━━━━━━━━━━━━━━\\nLowest Ever: ' + $json.currency + ' ' + $json.new_lowest_price.toFixed(2) + ' (was ' + $json.currency + ' ' + $json.initial_price + ')\\nSaving: ' + $json.currency + ' ' + $json.saving + ' (' + $json.percentDrop + '% off)\\nAirline: ' + $json.airline + '\\n\\nThis is the best deal in the last ' + $json.daysDiff + ' days — book quickly!' }}",
         "additionalFields": {}
       },
-      "name": "Best Deal Alert",
+      "name": "Send Best Deal Alert",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1,
-      "position": [2100, 200]
+      "position": [2100, 100],
+      "credentials": { "telegramApi": "telegram-bot" }
     },
     {
       "parameters": {
         "chatId": "={{ $json.chat_id }}",
-        "text": "=Price Drop Alert! 📉\n✈ {{ $json.from_airport }} → {{ $json.to_airport }}\n{{ $json.travel_date }}\n\nWas: {{ $json.currency }} {{ $json.last_price }}\nNow: {{ $json.currency }} {{ $json.current_price }} (down {{ $json.percentDrop }}%)\n\nAirline: {{ $json.airline }}\nFlight: {{ $json.flight_numbers }}\n\nBook quickly — prices can change!",
+        "text": "={{ 'Price Drop Alert!\\n✈ ' + $json.from_airport + ' → ' + $json.to_airport + ' on ' + $json.travel_date + '\\n━━━━━━━━━━━━━━━━━━━━\\nWas: ' + $json.currency + ' ' + $json.last_price + '\\nNow: ' + $json.currency + ' ' + $json.current_price.toFixed(2) + ' (down ' + $json.percentDrop + '%)\\nAirline: ' + $json.airline + ' Flight ' + $json.flight_numbers + '\\n\\nBook quickly — prices can change!' }}",
         "additionalFields": {}
       },
-      "name": "Price Drop Alert",
+      "name": "Send Price Drop Alert",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1,
-      "position": [2100, 400]
+      "position": [2100, 250],
+      "credentials": { "telegramApi": "telegram-bot" }
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "email-alerts-enabled",
-              "leftValue": "={{ $json.email_alerts }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
+        "sendTo": "={{ $json.email_address }}",
+        "subject": "{{ 'Price Drop Alert: ' + $json.from_airport + ' → ' + $json.to_airport }}",
+        "message": "={{ '<h2>Price Drop Alert!</h2><p><strong>Route:</strong> ' + $json.from_airport + ' → ' + $json.to_airport + ' on ' + $json.travel_date + '</p><p><strong>Was:</strong> ' + $json.currency + ' ' + $json.last_price + '</p><p><strong>Now:</strong> ' + $json.currency + ' ' + $json.current_price.toFixed(2) + '</p><p><strong>Savings:</strong> ' + $json.currency + ' ' + $json.saving + ' (' + $json.percentDrop + '%)</p><p><strong>Airline:</strong> ' + $json.airline + '</p><p>Prices can change quickly — book now!</p>' }}",
         "options": {}
-      },
-      "name": "Check Email Alerts",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [1900, 500]
-    },
-    {
-      "parameters": {
-        "to": "={{ $json.email_address }}",
-        "subject": "=Price Drop Alert! {{ $json.from_airport }} → {{ $json.to_airport }}",
-        "body": "=<h1>Price Drop Alert!</h1>\n<p><strong>Route:</strong> {{ $json.from_airport }} → {{ $json.to_airport }}</p>\n<p><strong>Travel Date:</strong> {{ $json.travel_date }}</p>\n<p><strong>Was:</strong> {{ $json.currency }} {{ $json.last_price }}</p>\n<p><strong>Now:</strong> {{ $json.currency }} {{ $json.current_price }}</p>\n<p><strong>Saving:</strong> {{ $json.currency }} {{ $json.saving }} ({{ $json.percentDrop }}%)</p>\n<p><strong>Airline:</strong> {{ $json.airline }}</p>",
-        "additionalFields": {}
       },
       "name": "Send Email Alert",
       "type": "n8n-nodes-base.gmail",
-      "typeVersion": 1,
-      "position": [2100, 600]
+      "typeVersion": 2,
+      "position": [2300, 200],
+      "credentials": { "gmailOAuth2": "gmail-oauth" }
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
           "conditions": [
             {
-              "id": "whatsapp-set",
-              "leftValue": "={{ $json.whatsapp_number }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "exists"
-              }
+              "id": "has-email",
+              "leftValue": "={{ $json.email_alerts }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
             }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "name": "Check WhatsApp",
+      "name": "Send Email?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [1900, 700]
+      "typeVersion": 2,
+      "position": [2450, 200]
     },
     {
       "parameters": {
-        "from": "={{ $env.TWILIO_WHATSAPP_FROM }}",
-        "to": "={{ $json.whatsapp_number }}",
-        "message": "=Price Drop Alert! 📉\n\n✈ {{ $json.from_airport }} → {{ $json.to_airport }}\nWas: {{ $json.currency }} {{ $json.last_price }}\nNow: {{ $json.currency }} {{ $json.current_price }} (down {{ $json.percentDrop }}%)\n\nBook quickly!",
-        "additionalFields": {}
+        "url": "https://api.twilio.com/2010-04-01/Accounts/{{ $env.TWILIO_ACCOUNT_SID }}/Messages.json",
+        "method": "POST",
+        "authentication": "basicAuth",
+        "basicAuth": {
+          "user": "={{ $env.TWILIO_ACCOUNT_SID }}",
+          "password": "={{ $env.TWILIO_AUTH_TOKEN }}"
+        },
+        "sendBody": true,
+        "bodyParametersUiType": "keyValue",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "From", "value": "={{ $env.TWILIO_WHATSAPP_FROM }}" },
+            { "name": "To", "value": "=whatsapp:{{ $json.whatsapp_number }}" },
+            { "name": "Body", "value": "={{ 'Price Drop Alert!\\n✈ ' + $json.from_airport + ' → ' + $json.to_airport + '\\nWas: ' + $json.currency + ' ' + $json.last_price + '\\nNow: ' + $json.currency + ' ' + $json.current_price.toFixed(2) + ' (down ' + $json.percentDrop + '%)\\nBook now!' }}" }
+          ]
+        },
+        "options": {}
       },
       "name": "Send WhatsApp Alert",
-      "type": "n8n-nodes-base.twilio",
-      "typeVersion": 1,
-      "position": [2100, 800]
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2300, 350]
     },
     {
       "parameters": {
-        "operation": "update",
-        "sheetId": "={{ $env.GOOGLE_SHEETS_ID }}",
-        "documentType": "sheet",
-        "sheetName": "Tracker",
-        "columns": "last_price,lowest_price,last_checked",
-        "key": "tracker_id",
-        "keyValue": "={{ $json.tracker_id }}",
-        "options": {
-          "cellFormat": "a1"
-        }
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "has-whatsapp",
+              "leftValue": "={{ $json.whatsapp_number }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
-      "name": "Update Tracker Prices",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 3,
-      "position": [2300, 400],
-      "credentials": {
-        "googleSheetsOAuth2Api": "google-sheets"
-      }
+      "name": "Send WhatsApp?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2450, 350]
     },
     {
       "parameters": {
         "operation": "append",
-        "sheetId": "={{ $env.GOOGLE_SHEETS_ID }}",
-        "documentType": "sheet",
+        "documentId": "={{ $env.GOOGLE_SHEETS_ID }}",
         "sheetName": "PriceHistory",
-        "columns": "tracker_id,timestamp,price,airline,flight_numbers",
-        "options": {
-          "cellFormat": "a1"
-        }
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tracker_id": "={{ $json.tracker_id }}",
+            "timestamp": "={{ new Date().toISOString() }}",
+            "price": "={{ $json.current_price }}",
+            "airline": "={{ $json.airline }}",
+            "flight_numbers": "={{ $json.flight_numbers }}"
+          }
+        },
+        "options": {}
       },
       "name": "Append Price History",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 3,
-      "position": [2500, 400],
-      "credentials": {
-        "googleSheetsOAuth2Api": "google-sheets"
-      }
+      "typeVersion": 4,
+      "position": [2600, 200],
+      "credentials": { "googleSheetsOAuth2Api": "google-sheets" }
     },
     {
       "parameters": {
         "operation": "update",
-        "sheetId": "={{ $env.GOOGLE_SHEETS_ID }}",
-        "documentType": "sheet",
+        "documentId": "={{ $env.GOOGLE_SHEETS_ID }}",
         "sheetName": "Tracker",
-        "columns": "last_checked",
-        "key": "tracker_id",
-        "keyValue": "={{ $json.tracker_id }}",
-        "options": {
-          "cellFormat": "a1"
-        }
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tracker_id": "={{ $json.tracker_id }}",
+            "last_price": "={{ $json.current_price }}",
+            "lowest_price": "={{ $json.new_lowest_price }}",
+            "last_checked": "={{ new Date().toISOString() }}"
+          }
+        },
+        "matchingColumns": ["tracker_id"],
+        "options": {}
       },
-      "name": "Update Last Checked Only",
+      "name": "Update Tracker",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 3,
-      "position": [2300, 900],
-      "credentials": {
-        "googleSheetsOAuth2Api": "google-sheets"
-      }
+      "typeVersion": 4,
+      "position": [2800, 200],
+      "credentials": { "googleSheetsOAuth2Api": "google-sheets" }
     },
     {
       "parameters": {
-        "operation": "append",
-        "sheetId": "={{ $env.GOOGLE_SHEETS_ID }}",
-        "documentType": "sheet",
-        "sheetName": "PriceHistory",
-        "columns": "tracker_id,timestamp,price,airline,flight_numbers",
-        "options": {
-          "cellFormat": "a1"
-        }
+        "operation": "update",
+        "documentId": "={{ $env.GOOGLE_SHEETS_ID }}",
+        "sheetName": "Tracker",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tracker_id": "={{ $json.tracker_id }}",
+            "last_checked": "={{ new Date().toISOString() }}"
+          }
+        },
+        "matchingColumns": ["tracker_id"],
+        "options": {}
       },
-      "name": "Append History No Alert",
+      "name": "Update Last Checked Only",
       "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1700, 500],
+      "credentials": { "googleSheetsOAuth2Api": "google-sheets" }
+    },
+    {
+      "parameters": {
+        "loopOver": "={{ { 'batches': $('Split Into Batches').json.batches } }}",
+        "options": {}
+      },
+      "name": "Loop Back To Batches",
+      "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [2500, 900],
-      "credentials": {
-        "googleSheetsOAuth2Api": "google-sheets"
-      }
+      "position": [3000, 200]
     }
   ],
   "connections": {
     "Hourly Schedule Trigger": {
-      "main": [
-        [
-          {
-            "node": "Read Active Trackers",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Read All Trackers", "type": "main", "index": 0 }]]
     },
-    "Read Active Trackers": {
-      "main": [
-        [
-          {
-            "node": "Check Active Trackers",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Read All Trackers": {
+      "main": [[{ "node": "Filter Active Only", "type": "main", "index": 0 }]]
     },
-    "Check Active Trackers": {
+    "Filter Active Only": {
       "main": [
-        [
-          {
-            "node": "Split Into Batches",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Split Into Batches", "type": "main", "index": 0 }],
+        []
       ]
     },
     "Split Into Batches": {
-      "main": [
-        [
-          {
-            "node": "Amadeus OAuth",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Store Tracker Context", "type": "main", "index": 0 }]]
     },
-    "Amadeus OAuth": {
-      "main": [
-        [
-          {
-            "node": "Amadeus Flight Search",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Store Tracker Context": {
+      "main": [[{ "node": "Kiwi Flight Search", "type": "main", "index": 0 }]]
     },
-    "Amadeus Flight Search": {
-      "main": [
-        [
-          {
-            "node": "Extract Cheapest Price",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Kiwi Flight Search": {
+      "main": [[{ "node": "Extract Cheapest Price", "type": "main", "index": 0 }]]
     },
     "Extract Cheapest Price": {
-      "main": [
-        [
-          {
-            "node": "Calculate Price Drop",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Calculate Price Drop", "type": "main", "index": 0 }]]
     },
     "Calculate Price Drop": {
-      "main": [
-        [
-          {
-            "node": "Check Significant Drop",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Check Significant Drop", "type": "main", "index": 0 }]]
     },
     "Check Significant Drop": {
       "main": [
-        [
-          {
-            "node": "Check Mature Deal",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Update Last Checked Only",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Check Mature Deal", "type": "main", "index": 0 }],
+        [{ "node": "Update Last Checked Only", "type": "main", "index": 0 }]
       ]
     },
     "Check Mature Deal": {
       "main": [
-        [
-          {
-            "node": "Best Deal Alert",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Price Drop Alert",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Send Best Deal Alert", "type": "main", "index": 0 }],
+        [{ "node": "Send Price Drop Alert", "type": "main", "index": 0 }]
       ]
     },
-    "Best Deal Alert": {
-      "main": [
-        [
-          {
-            "node": "Check Email Alerts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Send Best Deal Alert": {
+      "main": [[{ "node": "Send Email?", "type": "main", "index": 0 }]]
     },
-    "Price Drop Alert": {
-      "main": [
-        [
-          {
-            "node": "Check Email Alerts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Send Price Drop Alert": {
+      "main": [[{ "node": "Send Email?", "type": "main", "index": 0 }]]
     },
-    "Check Email Alerts": {
+    "Send Email?": {
       "main": [
-        [
-          {
-            "node": "Send Email Alert",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Send Email Alert", "type": "main", "index": 0 }],
+        [{ "node": "Send WhatsApp?", "type": "main", "index": 0 }]
       ]
     },
     "Send Email Alert": {
-      "main": [
-        [
-          {
-            "node": "Check WhatsApp",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Send WhatsApp?", "type": "main", "index": 0 }]]
     },
-    "Check WhatsApp": {
+    "Send WhatsApp?": {
       "main": [
-        [
-          {
-            "node": "Send WhatsApp Alert",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Send WhatsApp Alert", "type": "main", "index": 0 }],
+        [{ "node": "Append Price History", "type": "main", "index": 0 }]
       ]
     },
     "Send WhatsApp Alert": {
-      "main": [
-        [
-          {
-            "node": "Update Tracker Prices",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Append Price History", "type": "main", "index": 0 }]]
     },
-    "Update Tracker Prices": {
-      "main": [
-        [
-          {
-            "node": "Append Price History",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Append Price History": {
+      "main": [[{ "node": "Update Tracker", "type": "main", "index": 0 }]]
+    },
+    "Update Tracker": {
+      "main": [[{ "node": "Loop Back To Batches", "type": "main", "index": 0 }]]
     },
     "Update Last Checked Only": {
-      "main": [
-        [
-          {
-            "node": "Append History No Alert",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Loop Back To Batches", "type": "main", "index": 0 }]]
     }
   },
-  "settings": {
-    "executionOrder": "v1"
-  },
+  "settings": { "executionOrder": "v1" },
   "staticData": null,
-  "tags": ["flight-tracker", "hourly-monitor", "price-alerts"]
+  "tags": ["flight-tracker", "monitor", "kiwi"]
 }
