@@ -4,12 +4,7 @@
     {
       "parameters": {
         "rule": {
-          "interval": [
-            {
-              "field": "cron",
-              "expression": "0 9 * * *"
-            }
-          ]
+          "interval": [{ "field": "cron", "expression": "0 9 * * *" }]
         }
       },
       "name": "Daily Schedule Trigger",
@@ -20,58 +15,38 @@
     {
       "parameters": {
         "operation": "read",
-        "sheetId": "={{ $env.GOOGLE_SHEETS_ID }}",
-        "documentType": "sheet",
+        "documentId": "={{ $env.GOOGLE_SHEETS_ID }}",
         "sheetName": "Tracker",
-        "options": {
-          "cellFormat": "a1"
-        }
+        "options": {}
       },
       "name": "Read All Trackers",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 3,
+      "typeVersion": 4,
       "position": [300, 400],
-      "credentials": {
-        "googleSheetsOAuth2Api": "google-sheets"
-      }
+      "credentials": { "googleSheetsOAuth2Api": "google-sheets" }
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "has-active-trackers",
-              "leftValue": "={{ $json.status }}",
-              "rightValue": "active",
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
+        "operation": "read",
+        "documentId": "={{ $env.GOOGLE_SHEETS_ID }}",
+        "sheetName": "PriceHistory",
         "options": {}
       },
-      "name": "Check Active Trackers",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [500, 400]
+      "name": "Read Price History",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [300, 600],
+      "credentials": { "googleSheetsOAuth2Api": "google-sheets" }
     },
     {
       "parameters": {
-        "jsCode": "// Group trackers by chat_id\nconst rows = $input.all();\nconst grouped = {};\n\nfor (const row of rows) {\n  const chatId = row.json.chat_id;\n  if (!grouped[chatId]) {\n    grouped[chatId] = [];\n  }\n  grouped[chatId].push(row.json);\n}\n\nconst result = Object.entries(grouped).map(([chatId, trackers]) => ({\n  chat_id: chatId,\n  trackers: trackers\n}));\n\nreturn result;",
+        "jsCode": "// Group active trackers by chat_id and enrich with yesterday prices\nconst trackerItems = $('Read All Trackers').all();\nconst historyItems = $('Read Price History').all();\n\nconst yesterday = new Date();\nyesterday.setDate(yesterday.getDate() - 1);\nconst yesterdayStr = yesterday.toISOString().split('T')[0];\n\n// Build price history lookup: tracker_id -> yesterday price\nconst yesterdayPrices = {};\nfor (const h of historyItems) {\n  const ts = h.json.timestamp || '';\n  if (ts.startsWith(yesterdayStr)) {\n    const tid = h.json.tracker_id;\n    if (!yesterdayPrices[tid]) {\n      yesterdayPrices[tid] = parseFloat(h.json.price);\n    }\n  }\n}\n\n// Group active trackers by chat_id\nconst grouped = {};\nfor (const item of trackerItems) {\n  const row = item.json;\n  if (row.status !== 'active') continue;\n  const cid = row.chat_id;\n  if (!grouped[cid]) grouped[cid] = [];\n  grouped[cid].push({\n    ...row,\n    yesterday_price: yesterdayPrices[row.tracker_id] || null\n  });\n}\n\nreturn Object.entries(grouped).map(([chat_id, trackers]) => ({\n  chat_id,\n  trackers,\n  email_alerts: trackers[0].email_alerts,\n  email_address: trackers[0].email_address,\n  whatsapp_number: trackers[0].whatsapp_number || ''\n}));",
         "options": {}
       },
-      "name": "Group By Chat ID",
+      "name": "Group And Enrich Users",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [700, 400]
+      "position": [500, 400]
     },
     {
       "parameters": {
@@ -80,67 +55,23 @@
       },
       "name": "Loop Over Users",
       "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 1,
-      "position": [900, 400]
-    },
-    {
-      "parameters": {
-        "operation": "read",
-        "sheetId": "={{ $env.GOOGLE_SHEETS_ID }}",
-        "documentType": "sheet",
-        "sheetName": "PriceHistory",
-        "options": {
-          "cellFormat": "a1"
-        }
-      },
-      "name": "Read Price History",
-      "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 3,
-      "position": [1100, 400],
-      "credentials": {
-        "googleSheetsOAuth2Api": "google-sheets"
-      }
+      "position": [700, 400]
     },
     {
       "parameters": {
-        "jsCode": "// Get yesterday's price for each tracker\nconst trackers = $json.trackers;\nconst priceHistory = $input.all();\n\nconst yesterday = new Date();\nyesterday.setDate(yesterday.getDate() - 1);\nconst yesterdayStr = yesterday.toISOString().split('T')[0];\n\nconst trackerMap = {};\nfor (const tracker of trackers) {\n  const historyForTracker = priceHistory.filter(h => \n    h.json.tracker_id === tracker.tracker_id && \n    h.json.timestamp && h.json.timestamp.includes(yesterdayStr)\n  );\n  \n  trackerMap[tracker.tracker_id] = {\n    ...tracker,\n    yesterday_price: historyForTracker.length > 0 ? parseFloat(historyForTracker[0].json.price) : null\n  };\n}\n\nreturn Object.values(trackerMap);",
-        "options": {}
-      },
-      "name": "Get Yesterday Prices",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1300, 400]
-    },
-    {
-      "parameters": {
-        "url": "=https://test.api.amadeus.com/v1/security/oauth2/token",
+        "url": "https://test.api.amadeus.com/v1/security/oauth2/token",
         "method": "POST",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/x-www-form-urlencoded"
-            }
-          ]
+          "parameters": [{ "name": "Content-Type", "value": "application/x-www-form-urlencoded" }]
         },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            {
-              "name": "grant_type",
-              "value": "client_credentials"
-            },
-            {
-              "name": "client_id",
-              "value": "={{ $env.AMADEUS_API_KEY }}"
-            },
-            {
-              "name": "client_secret",
-              "value": "={{ $env.AMADEUS_API_SECRET }}"
-            }
+            { "name": "grant_type", "value": "client_credentials" },
+            { "name": "client_id", "value": "={{ $env.AMADEUS_API_KEY }}" },
+            { "name": "client_secret", "value": "={{ $env.AMADEUS_API_SECRET }}" }
           ]
         },
         "options": {}
@@ -148,60 +79,27 @@
       "name": "Amadeus OAuth",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 3,
-      "position": [1500, 400],
-      "credentials": {
-        "httpHeaderAuth": "amadeus-auth"
-      }
+      "position": [900, 400]
     },
     {
       "parameters": {
-        "jsCode": "// Make separate flight search calls for each tracker\nconst trackers = $json.trackers;\nconst results = [];\n\n// This node will be called once per user, but we need to iterate over trackers\n// The actual iteration happens in the sub-nodes\n\nreturn results;",
+        "jsCode": "// Fetch current price for each tracker route belonging to this user\nconst token = $input.first().json.access_token;\nif (!token) throw new Error('No Amadeus access token');\n\nconst userCtx = $('Loop Over Users').first().json;\nconst trackers = userCtx.trackers;\n\nconst updatedTrackers = [];\n\nfor (const tracker of trackers) {\n  let currentPrice = null;\n  let airline = '';\n  \n  try {\n    const returnParam = tracker.return_date && tracker.return_date !== 'ONEWAY'\n      ? `&returnDate=${tracker.return_date}` : '';\n    const url = `https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=${tracker.from_airport}&destinationLocationCode=${tracker.to_airport}&departureDate=${tracker.travel_date}${returnParam}&adults=${tracker.passengers || 1}&max=1&currencyCode=${tracker.currency || 'CAD'}`;\n    \n    const resp = await this.helpers.httpRequest({\n      method: 'GET',\n      url,\n      headers: { Authorization: `Bearer ${token}` }\n    });\n    \n    if (resp.data && resp.data.length > 0) {\n      currentPrice = parseFloat(resp.data[0].price.total);\n      airline = resp.data[0].validatingAirlineCodes[0];\n    }\n  } catch (e) {\n    // Continue with null price if this route fails\n  }\n  \n  updatedTrackers.push({ ...tracker, current_price: currentPrice, airline });\n}\n\nreturn [{\n  chat_id: userCtx.chat_id,\n  email_alerts: userCtx.email_alerts,\n  email_address: userCtx.email_address,\n  whatsapp_number: userCtx.whatsapp_number,\n  trackers: updatedTrackers\n}];",
         "options": {}
       },
-      "name": "Prepare Search Params",
+      "name": "Fetch Prices Per Route",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1500, 550]
+      "position": [1100, 400]
     },
     {
       "parameters": {
-        "url": "=https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode={{ $json.from_airport }}&destinationLocationCode={{ $json.to_airport }}&departureDate={{ $json.travel_date }}&adults={{ $json.passengers }}&max=1&currencyCode={{ $json.currency || 'CAD' }}",
-        "method": "GET",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $json.access_token }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "name": "Amadeus Flight Search",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [1700, 400]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Extract current price\nconst data = $input.first().json;\n\nif (!data.data || data.data.length === 0) {\n  return [{ current_price: null }];\n}\n\nreturn [{\n  current_price: parseFloat(data.data[0].price.total),\n  currency: data.data[0].price.currencyCode,\n  airline: data.data[0].validatingAirlineCodes[0]\n}];",
-        "options": {}
-      },
-      "name": "Extract Current Price",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1900, 400]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Build multi-route digest message\nconst trackers = $json.trackers;\nconst currentDate = new Date().toLocaleDateString('en-US', { \n  weekday: 'long', \n  year: 'numeric', \n  month: 'long', \n  day: 'numeric' \n});\n\nlet message = `Daily Flight Price Report – ${currentDate}\\n`;\nmessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n`;\n\nfor (const tracker of trackers) {\n  const daysSinceStart = Math.floor((new Date() - new Date(tracker.tracking_since)) / (1000 * 60 * 60 * 24));\n  const yesterdayPrice = tracker.yesterday_price || 'N/A';\n  \n  message += `✈ ${tracker.from_airport} → ${tracker.to_airport}\\n`;\n  message += `Today: ${tracker.currency || 'CAD'} ${tracker.current_price || 'N/A'}`;\n  message += ` | Yesterday: ${tracker.currency || 'CAD'} ${yesterdayPrice}\\n`;\n  message += `Lowest Ever: ${tracker.currency || 'CAD'} ${tracker.lowest_price} | Tracking: ${daysSinceStart} days\\n\\n`;\n}\n\nmessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;\n\nreturn [{ digest_message: message }];",
+        "jsCode": "// Build multi-route digest message\nconst d = $input.first().json;\nconst currentDate = new Date().toLocaleDateString('en-US', {\n  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'\n});\n\nlet message = `Daily Flight Price Report – ${currentDate}\\n`;\nmessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n`;\n\nfor (const tracker of d.trackers) {\n  const daysSince = Math.floor((new Date() - new Date(tracker.tracking_since)) / (1000 * 60 * 60 * 24));\n  const curr = tracker.currency || 'CAD';\n  const todayPrice = tracker.current_price !== null ? `${curr} ${tracker.current_price.toFixed(2)}` : 'Unavailable';\n  const yesterdayPriceStr = tracker.yesterday_price ? `${curr} ${tracker.yesterday_price.toFixed(2)}` : 'N/A';\n  \n  message += `✈ ${tracker.from_airport} → ${tracker.to_airport}\\n`;\n  message += `Today: ${todayPrice} | Yesterday: ${yesterdayPriceStr}\\n`;\n  message += `Lowest Ever: ${curr} ${tracker.lowest_price} | Tracking: ${daysSince} days\\n\\n`;\n}\n\nmessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;\n\nreturn [{ ...d, digest_message: message }];",
         "options": {}
       },
       "name": "Build Digest Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2100, 400]
+      "position": [1300, 400]
     },
     {
       "parameters": {
@@ -212,25 +110,19 @@
       "name": "Send Telegram Digest",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1,
-      "position": [2300, 400]
+      "position": [1500, 400],
+      "credentials": { "telegramApi": "telegram-bot" }
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
           "conditions": [
             {
               "id": "email-enabled",
-              "leftValue": "={{ $json.email_alerts }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
+              "leftValue": "={{ String($json.email_alerts).toUpperCase() }}",
+              "rightValue": "TRUE",
+              "operator": { "type": "string", "operation": "equals" }
             }
           ],
           "combinator": "and"
@@ -239,38 +131,32 @@
       },
       "name": "Check Email Enabled",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [2300, 550]
+      "typeVersion": 2,
+      "position": [1700, 400]
     },
     {
       "parameters": {
-        "to": "={{ $json.email_address }}",
-        "subject": "=Your Daily Flight Price Report",
-        "body": "=<h1>Your Daily Flight Price Report</h1>\n<p>{{ $json.digest_message }}</p>",
-        "additionalFields": {}
+        "sendTo": "={{ $json.email_address }}",
+        "subject": "Your Daily Flight Price Report",
+        "message": "={{ '<h2>Daily Flight Price Report</h2><pre>' + $json.digest_message + '</pre>' }}",
+        "options": {}
       },
       "name": "Send Email Digest",
       "type": "n8n-nodes-base.gmail",
-      "typeVersion": 1,
-      "position": [2500, 550]
+      "typeVersion": 2,
+      "position": [1900, 300],
+      "credentials": { "gmailOAuth2": "gmail-oauth" }
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
           "conditions": [
             {
               "id": "whatsapp-set",
               "leftValue": "={{ $json.whatsapp_number }}",
               "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "exists"
-              }
+              "operator": { "type": "string", "operation": "notEmpty" }
             }
           ],
           "combinator": "and"
@@ -279,203 +165,89 @@
       },
       "name": "Check WhatsApp Set",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [2300, 700]
+      "typeVersion": 2,
+      "position": [1900, 500]
     },
     {
       "parameters": {
         "from": "={{ $env.TWILIO_WHATSAPP_FROM }}",
-        "to": "={{ $json.whatsapp_number }}",
+        "to": "={{ 'whatsapp:' + $json.whatsapp_number }}",
         "message": "={{ $json.digest_message }}",
         "additionalFields": {}
       },
       "name": "Send WhatsApp Digest",
       "type": "n8n-nodes-base.twilio",
       "typeVersion": 1,
-      "position": [2500, 700]
+      "position": [2100, 500],
+      "credentials": { "twilioApi": "twilio-credentials" }
+    },
+    {
+      "parameters": {
+        "jsCode": "// No-op end node — loop back to next user\nreturn $input.all();",
+        "options": {}
+      },
+      "name": "End Of User Processing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2300, 400]
     }
   ],
   "connections": {
     "Daily Schedule Trigger": {
       "main": [
         [
-          {
-            "node": "Read All Trackers",
-            "type": "main",
-            "index": 0
-          }
+          { "node": "Read All Trackers", "type": "main", "index": 0 },
+          { "node": "Read Price History", "type": "main", "index": 0 }
         ]
       ]
     },
     "Read All Trackers": {
-      "main": [
-        [
-          {
-            "node": "Check Active Trackers",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Check Active Trackers": {
-      "main": [
-        [
-          {
-            "node": "Group By Chat ID",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Group By Chat ID": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Users",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Loop Over Users": {
-      "main": [
-        [
-          {
-            "node": "Read Price History",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Group And Enrich Users", "type": "main", "index": 0 }]]
     },
     "Read Price History": {
-      "main": [
-        [
-          {
-            "node": "Get Yesterday Prices",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Group And Enrich Users", "type": "main", "index": 1 }]]
     },
-    "Get Yesterday Prices": {
-      "main": [
-        [
-          {
-            "node": "Amadeus OAuth",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Group And Enrich Users": {
+      "main": [[{ "node": "Loop Over Users", "type": "main", "index": 0 }]]
+    },
+    "Loop Over Users": {
+      "main": [[{ "node": "Amadeus OAuth", "type": "main", "index": 0 }]]
     },
     "Amadeus OAuth": {
-      "main": [
-        [
-          {
-            "node": "Prepare Search Params",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Fetch Prices Per Route", "type": "main", "index": 0 }]]
     },
-    "Prepare Search Params": {
-      "main": [
-        [
-          {
-            "node": "Amadeus Flight Search",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Amadeus Flight Search": {
-      "main": [
-        [
-          {
-            "node": "Extract Current Price",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Extract Current Price": {
-      "main": [
-        [
-          {
-            "node": "Build Digest Message",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Fetch Prices Per Route": {
+      "main": [[{ "node": "Build Digest Message", "type": "main", "index": 0 }]]
     },
     "Build Digest Message": {
-      "main": [
-        [
-          {
-            "node": "Send Telegram Digest",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Send Telegram Digest", "type": "main", "index": 0 }]]
     },
     "Send Telegram Digest": {
-      "main": [
-        [
-          {
-            "node": "Check Email Enabled",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Check Email Enabled", "type": "main", "index": 0 }]]
     },
     "Check Email Enabled": {
       "main": [
-        [
-          {
-            "node": "Send Email Digest",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Send Email Digest", "type": "main", "index": 0 }],
+        [{ "node": "Check WhatsApp Set", "type": "main", "index": 0 }]
       ]
     },
     "Send Email Digest": {
-      "main": [
-        [
-          {
-            "node": "Check WhatsApp Set",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Check WhatsApp Set", "type": "main", "index": 0 }]]
     },
     "Check WhatsApp Set": {
       "main": [
-        [
-          {
-            "node": "Send WhatsApp Digest",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Send WhatsApp Digest", "type": "main", "index": 0 }],
+        [{ "node": "End Of User Processing", "type": "main", "index": 0 }]
       ]
+    },
+    "Send WhatsApp Digest": {
+      "main": [[{ "node": "End Of User Processing", "type": "main", "index": 0 }]]
+    },
+    "End Of User Processing": {
+      "main": [[{ "node": "Loop Over Users", "type": "main", "index": 0 }]]
     }
   },
-  "settings": {
-    "executionOrder": "v1"
-  },
+  "settings": { "executionOrder": "v1" },
   "staticData": null,
   "tags": ["flight-tracker", "daily-digest", "summary"]
 }

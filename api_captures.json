@@ -1,0 +1,26 @@
+[
+  {
+    "url": "https://www.google.com/_/FlightsFrontendUi/data/travel.frontend.flights.FlightsFrontendService/GetShoppingResults?f.sid=6705434917915398979&bl=boq_travel-frontend-flights-ui_20260415.01_p0&hl=en-US&soc-app=162&soc-platform=1&soc-device=1&_reqid=81693&rt=c",
+    "method": "POST",
+    "headers": {
+      "sec-ch-ua-full-version-list": "\"Chromium\";v=\"145.0.7632.6\", \"Not:A-Brand\";v=\"99.0.0.0\"",
+      "sec-ch-ua-platform": "\"Windows\"",
+      "sec-ch-ua": "\"Chromium\";v=\"145\", \"Not:A-Brand\";v=\"99\"",
+      "sec-ch-ua-bitness": "\"64\"",
+      "sec-ch-ua-model": "\"\"",
+      "sec-ch-ua-mobile": "?0",
+      "x-same-domain": "1",
+      "sec-ch-ua-wow64": "?0",
+      "sec-ch-ua-form-factors": "\"Desktop\"",
+      "x-goog-batchexecute-bgr": "[\";2ce4x6PQAAY49A9XGPRf1IQzNHgCUiUmAEABEArZ1McBC8kMb0-GIq5DUo0pT77_STEbaFj6U6Ri_KpSEiaH0xLHHDsokpopuXgu0Bs_BdfNwPdxzClmcXSjHwAAASpPAAAADHUBB2MAQlA_MNEjlA0eGla_6meaWT7iAKx2dF3Inlwh5oQi0by0HFu-8yTmWjylewUkZQNnBXMT2knsgASKlMPtyMe5ldUkJ4QDRZeWVtb8n5-WDWLLrL5IkVGZa8DnE6PkBYwdhj8NrTy1bDaE7gtN1dPjjSS1F9F4TsYTtCZKW0K85eN-nl7KD7xtFT12xzqsNRuI723OGRZRBTwf10M3D7nQAMDZqOEAgLx5sIIOhWNGYrmiyxEoNYA-5l5ARo7zomO_6VowAVIZKs74_rORKkTEl7PaSaGk1_b97cBrzZC3DNpUVooCioFV7AzwegqD510yPr_5yzbJbPd0IJwyzzWB1c9bx2QuZourMPJygzasRURRZs3SAXHAqpW2KoEYjRBMURkt-s6JSt4pSpZd-2iU71LftiyNHgeiwgwbI6NSa7ZezHmo9_ZBM0hMTssQ2BkuTl-oDjR_NOlBRPMWSJLN1wQl73MP0-O6FhkVbrrEn7ASuftwDeAyoKXddy2cgs-ly0QtEthcW9u8RG7_7fGzBLV-_Um5yPzXkuWexPwenm6ozJtpFD9lRdimHWmEw5H8OBQKTHs8AjIjxkx62RpteGSJ5WMFir5mjG4aL5sIWtIaqPkFfd9n3196AhuWGUA3rMjgW6WeKxZ4zQ3pTow03B-bdAZBPmxb_S6k8dTBUXZ8VUS_sIKSp4TkmQbGhJGu3nI5QPdSbiz5WTz2usDzz7FqIOXHSB2f9jEy8Xh6X3gXp3K1jmsFrjeiAMcRPek7om2nQ2vYBzpjfl4b31T_0U8NkSZD5HOSdSpHigW77e8aauLwe6BIngrAqe0NvLMZoC6SBbSBIgdbCCmM1f2WO1S0SNFvfgc56WUIAq4h8Szqve1rY21kmB97PKZISMLvaw2-4Aiz21HqHLlNG1w4DIahKQgoy5y6YzNpEg-55j9GlvX23vOCNVMDO_wPsW9San-cYEiCa0aO0HHtsXJ_Y1lJwL5Jeq5wSrM7BIMxfCBpUQZXyTZLA-wkw3LINTAl46TKsRbdSWhml6jY0jyhcwOfa1deLmn02jed3JyPiMT-a_0tEfx0groGOxiqfk5UE6TTdQT9P-jCKRJaS5Wmyhmf_R2gE_2SO8FLt3k-oViBlPCtZvtRw1hIXX8VGnMcBqBMhzFdl2x19bpUBRKZRpMNxLnLRUCyozIuLD0g_dPgJclMhUf0gnuLCg\",null,null,576,60,null,null,0,\"5\"]",
+      "sec-ch-ua-arch": "\"x86\"",
+      "sec-ch-ua-full-version": "\"145.0.7632.6\"",
+      "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
+      "referer": "https://www.google.com/travel/flights?q=flights+from+YYZ+to+BOM+on+2026-06-01",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+      "x-goog-ext-259736195-jspb": "[\"en-US\",\"CA\",\"CAD\",1,null,[240],null,null,7,[]]",
+      "sec-ch-ua-platform-version": "\"19.0.0\""
+    },
+    "body": "f.req=%5Bnull%2C%22%5B%5Bnull%2Cnull%2Cnull%2C%5C%22Hhq53758WHyUAQLjZABG----------oycc2AAAAAGnlkloGNlvWA%5C%22%5D%2C%5Bnull%2Cnull%2C1%2Cnull%2C%5B%5D%2C1%2C%5B1%2C0%2C0%2C0%5D%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2C%5B%5B%5B%5B%5B%5C%22YYZ%5C%22%2C0%5D%5D%5D%2C%5B%5B%5B%5C%22BOM%5C%22%2C0%5D%5D%5D%2Cnull%2C0%2Cnull%2Cnull%2C%5C%222026-06-01%5C%22%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2C3%5D%2C%5B%5B%5B%5B%5C%22BOM%5C%22%2C0%5D%5D%5D%2C%5B%5B%5B%5C%22YYZ%5C%22%2C0%5D%5D%5D%2Cnull%2C0%2Cnull%2Cnull%2C%5C%222026-06-05%5C%22%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2C1%5D%5D%2Cnull%2Cnull%2Cnull%2C1%5D%2C0%2C0%2C0%2C1%5D%22%5D&"
+  }
+]
